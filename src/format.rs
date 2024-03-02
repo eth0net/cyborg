@@ -1,4 +1,4 @@
-use std::ffi::OsStr;
+use std::{ffi::OsStr, str::FromStr};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Format {
@@ -27,5 +27,21 @@ impl TryFrom<&str> for Format {
             "cbz" => Ok(Self::Cbz),
             _ => Err("invalid format".to_string()),
         }
+    }
+}
+
+impl TryFrom<String> for Format {
+    type Error = String;
+
+    fn try_from(s: String) -> Result<Self, Self::Error> {
+        s.as_str().try_into()
+    }
+}
+
+impl FromStr for Format {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        s.try_into()
     }
 }

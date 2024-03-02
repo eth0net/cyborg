@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{error::Error, fmt::Display, str::FromStr};
 
 use once_cell::sync::Lazy;
 use regex::Regex;
@@ -29,6 +29,7 @@ static COMIC_REGEX: &str = r"(?x)
 
     # Tags for the comic.
     (?:\s+(?<tags>(?:\s*\([\w\s\#&'+-.]+\))+))?
+    \.(?<format>[Cc][Bb][7RrTtZz])
     $";
 
 #[derive(Debug, PartialEq, Eq)]
@@ -81,31 +82,52 @@ pub struct Comic {
     pub format: Format,
 }
 
-impl TryFrom<&str> for Comic {
-    type Error = String;
+#[derive(Debug, PartialEq, Eq)]
+struct ParseComicError {
+    source: dyn Error,
+}
 
-    fn try_from(s: &str) -> Result<Self, Self::Error> {
+impl Display for ParseComicError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        todo!()
+    }
+}
+
+impl Error for ParseComicError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        None
+    }
+}
+
+impl FromStr for Comic {
+    type Err = ParseComicError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         static RE: Lazy<Regex> = Lazy::new(|| Regex::new(COMIC_REGEX).unwrap());
 
-        let path = PathBuf::from(s);
+        let caps = RE.captures(s).ok_or("getting captures")?;
 
-        let file_name = path
-            .file_stem()
-            .ok_or("getting file name")?
-            .to_str()
-            .ok_or("converting file name to string")?;
-        let caps = RE.captures(file_name).ok_or("getting captures")?;
+        let series = caps.name("series").ok_or("getting series")?.as_str().into();
 
-        let series = caps
-            .name("series")
-            .ok_or("getting series")?
-            .as_str()
-            .to_string();
-        let number = caps.name("number").map(|n| n.as_str().parse().unwrap());
+        let number = caps
+            .name("number")
+            .map(|n| n.as_str().parse::<usize>().map_err(|e| e.to_string()))
+            .transpose()?;
+
         let suffix = caps.name("suffix").map(|s| s.as_str().to_string());
-        let of = caps.name("of").map(|n| n.as_str().parse().unwrap());
+
+        let of = caps
+            .name("of")
+            .map(|o| o.as_str().parse::<usize>().map_err(|e| e.to_string()))
+            .transpose()?;
+
         let title = caps.name("title").map(|t| t.as_str().to_string());
-        let year = caps.name("year").map(|y| y.as_str().parse().unwrap());
+
+        let year = caps
+            .name("year")
+            .map(|y| y.as_str().parse::<usize>().map_err(|e| e.to_string()))
+            .transpose()?;
+
         let tags = caps
             .name("tags")
             .map(|t| {
@@ -117,8 +139,11 @@ impl TryFrom<&str> for Comic {
             })
             .unwrap_or_default();
 
-        let extension = path.extension().ok_or("getting extension")?;
-        let format = Format::try_from(extension)?;
+        let format = caps
+            .name("format")
+            .ok_or("getting format")?
+            .as_str()
+            .parse::<Format>()?;
 
         Ok(Self {
             series,
@@ -135,12 +160,13 @@ impl TryFrom<&str> for Comic {
 
 #[cfg(test)]
 pub(crate) mod tests {
+
     use crate::format::Format;
 
     use super::*;
 
     #[test]
-    fn comic_from_string() -> Result<(), String> {
+    fn comic_from_string() -> anyhow::Result<()> {
         let cases = [
             (
                 "Simple 001.cbr",
@@ -314,7 +340,7 @@ pub(crate) mod tests {
         ];
 
         for (input, expected) in cases {
-            let comic = Comic::try_from(input).map_err(|e| format!("{}: {}", e, input))?;
+            let comic: Comic = input.parse()?;
             assert_eq!(comic, expected);
         }
 
