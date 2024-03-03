@@ -1,4 +1,6 @@
-use std::ffi::OsStr;
+use std::error::Error;
+use std::fmt::{Display, Formatter};
+use std::str::FromStr;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Format {
@@ -8,24 +10,27 @@ pub enum Format {
     Cbz,
 }
 
-impl TryFrom<&OsStr> for Format {
-    type Error = String;
+#[derive(Debug)]
+pub struct FormatError;
 
-    fn try_from(s: &OsStr) -> Result<Self, Self::Error> {
-        s.to_str().map(Self::try_from).ok_or("invalid format")?
+impl Display for FormatError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "invalid format")
     }
 }
 
-impl TryFrom<&str> for Format {
-    type Error = String;
+impl Error for FormatError {}
 
-    fn try_from(s: &str) -> Result<Self, Self::Error> {
+impl FromStr for Format {
+    type Err = FormatError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
             "cb7" => Ok(Self::Cb7),
             "cbr" => Ok(Self::Cbr),
             "cbt" => Ok(Self::Cbt),
             "cbz" => Ok(Self::Cbz),
-            _ => Err("invalid format".to_string()),
+            _ => Err(FormatError),
         }
     }
 }

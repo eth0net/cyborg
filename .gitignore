@@ -6,3 +6,6 @@
 
 # macOS junk
 .DS_Store
+
+# IntelliJ junk
+.idea

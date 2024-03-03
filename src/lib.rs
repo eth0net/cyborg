@@ -1,2 +1,2 @@
-mod comic;
-mod format;
+pub mod comic;
+pub mod format;
