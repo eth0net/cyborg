@@ -1,39 +1,12 @@
-use std::error::Error;
-use std::fmt::Display;
-use std::num::ParseIntError;
 use std::str::FromStr;
 
-use once_cell::sync::Lazy;
-use regex::Regex;
+use crate::format::Format;
 
-use crate::format::{Format, FormatError};
+mod error;
+mod parse;
+mod regex;
 
-static COMIC_REGEX: &str = r"(?x)
-    ^
-    # Series name, or full name for non-serial comics.
-    (?<series>[\w\s\#()&'+-.]+?)
-
-    (?:\s+
-        # Issue or volume number.
-        \#?(?<number>\d+)
-
-        # Issue of volume suffix.
-        (?<suffix>\w+)?
-
-        # Total issues in limited series.
-        (?:\s+\(?[Oo][Ff]\s+\#?(?<of>\d+)\)?)?
-
-        # Issue title.
-        (?:\s+(?<title>[\w\s\#&'+-.]+?))?
-    )?
-
-    # Cover year.
-    (?:\s+\((?<year>\d{4})\))?
-
-    # Tags for the comic.
-    (?:\s+(?<tags>(?:\s*\([\w\s\#&'+-.]+\))+))?
-    \.(?<format>[Cc][Bb][7RrTtZz])
-    $";
+pub use error::ComicError;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Comic {
@@ -85,95 +58,20 @@ pub struct Comic {
     pub format: Format,
 }
 
-#[derive(Debug)]
-pub enum ComicError {
-    GetCaptures,
-    ParseSeries,
-    ParseNumber(ParseIntError),
-    ParseOf(ParseIntError),
-    ParseYear(ParseIntError),
-    GetFormat,
-    ParseFormat(FormatError),
-}
-
-impl Display for ComicError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ComicError::GetCaptures => write!(f, "invalid input: no capture groups matched"),
-            ComicError::ParseSeries => write!(f, "failed to parse series name"),
-            ComicError::ParseNumber(_) => write!(f, "failed to parse issue number"),
-            ComicError::ParseOf(_) => write!(f, "failed to parse issue of number"),
-            ComicError::ParseYear(_) => write!(f, "failed to parse year"),
-            ComicError::GetFormat => write!(f, "failed to get format"),
-            ComicError::ParseFormat(_) => write!(f, "failed to parse format"),
-        }
-    }
-}
-
-impl Error for ComicError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        match self {
-            ComicError::GetCaptures => None,
-            ComicError::ParseSeries => None,
-            ComicError::ParseNumber(err) => Some(err),
-            ComicError::ParseOf(err) => Some(err),
-            ComicError::ParseYear(err) => Some(err),
-            ComicError::GetFormat => None,
-            ComicError::ParseFormat(err) => Some(err),
-        }
-    }
-}
-
 impl FromStr for Comic {
     type Err = ComicError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        static RE: Lazy<Regex> = Lazy::new(|| Regex::new(COMIC_REGEX).unwrap());
+        let caps = regex::COMIC.captures(s).ok_or(ComicError::GetCaptures)?;
 
-        let caps = RE.captures(s).ok_or(ComicError::GetCaptures)?;
-
-        let series = caps
-            .name("series")
-            .ok_or(ComicError::ParseSeries)?
-            .as_str()
-            .into();
-
-        let number = caps
-            .name("number")
-            .map(|n| n.as_str().parse::<usize>().map_err(ComicError::ParseNumber))
-            .transpose()?;
-
-        let suffix = caps.name("suffix").map(|s| s.as_str().to_string());
-
-        let of = caps
-            .name("of")
-            .map(|o| o.as_str().parse::<usize>().map_err(ComicError::ParseOf))
-            .transpose()?;
-
-        let title = caps.name("title").map(|t| t.as_str().to_string());
-
-        let year = caps
-            .name("year")
-            .map(|y| y.as_str().parse::<usize>().map_err(ComicError::ParseYear))
-            .transpose()?;
-
-        let tags = caps
-            .name("tags")
-            .map(|t| {
-                t.as_str()
-                    .split(['(', ')'])
-                    .filter(|s| !s.trim().is_empty())
-                    .map(|s| s.to_string())
-                    .collect()
-            })
-            .unwrap_or_default();
-
-        let format = caps
-            .name("format")
-            .ok_or(ComicError::GetFormat)?
-            .as_str()
-            .parse::<Format>()
-            .map_err(ComicError::ParseFormat)?;
+        let series = parse::series(&caps)?;
+        let number = parse::number(&caps)?;
+        let suffix = parse::suffix(&caps);
+        let of = parse::of(&caps)?;
+        let title = parse::title(&caps);
+        let year = parse::year(&caps)?;
+        let tags = parse::tags(&caps);
+        let format = parse::format(&caps)?;
 
         Ok(Self {
             series,
