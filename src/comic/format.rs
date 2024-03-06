@@ -21,6 +21,21 @@ impl Display for FormatError {
 
 impl Error for FormatError {}
 
+impl Display for Format {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::Cb7 => "cb7",
+                Self::Cbr => "cbr",
+                Self::Cbt => "cbt",
+                Self::Cbz => "cbz",
+            }
+        )
+    }
+}
+
 impl FromStr for Format {
     type Err = FormatError;
 

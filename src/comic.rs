@@ -1,12 +1,13 @@
+use std::fmt::Display;
 use std::str::FromStr;
 
-use crate::format::Format;
+pub use error::ComicError;
+pub use format::{Format, FormatError};
 
 mod error;
+mod format;
 mod parse;
 mod regex;
-
-pub use error::ComicError;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Comic {
@@ -58,6 +59,38 @@ pub struct Comic {
     pub format: Format,
 }
 
+impl Display for Comic {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.series)?;
+
+        if let Some(number) = self.number {
+            write!(f, " {:03}", number)?;
+        }
+
+        if let Some(suffix) = &self.suffix {
+            write!(f, "{}", suffix)?;
+        }
+
+        if let Some(of) = self.of {
+            write!(f, " of {}", of)?;
+        }
+
+        if let Some(title) = &self.title {
+            write!(f, " {}", title)?;
+        }
+
+        if let Some(year) = self.year {
+            write!(f, " ({})", year)?;
+        }
+
+        for tag in &self.tags {
+            write!(f, " ({})", tag)?;
+        }
+
+        write!(f, ".{}", self.format)
+    }
+}
+
 impl FromStr for Comic {
     type Err = ComicError;
 
@@ -88,8 +121,6 @@ impl FromStr for Comic {
 
 #[cfg(test)]
 pub(crate) mod tests {
-    use crate::format::Format;
-
     use super::*;
 
     #[test]

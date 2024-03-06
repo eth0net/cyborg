@@ -1,5 +1,4 @@
-use crate::comic::error::ComicError;
-use crate::format::Format;
+use super::{ComicError, Format};
 
 pub(super) fn series(captures: &regex::Captures) -> Result<String, ComicError> {
     captures
