@@ -2,7 +2,7 @@ use std::error::Error;
 use std::fmt::Display;
 use std::num::ParseIntError;
 
-use super::format::FormatError;
+use super::FormatError;
 
 #[derive(Debug)]
 pub enum ComicError {

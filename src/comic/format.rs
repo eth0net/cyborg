@@ -1,6 +1,9 @@
-use std::error::Error;
-use std::fmt::{Display, Formatter};
+use std::fmt::Display;
 use std::str::FromStr;
+
+pub use error::FormatError;
+
+mod error;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Format {
@@ -10,19 +13,8 @@ pub enum Format {
     Cbz,
 }
 
-#[derive(Debug)]
-pub struct FormatError;
-
-impl Display for FormatError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "invalid format")
-    }
-}
-
-impl Error for FormatError {}
-
 impl Display for Format {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
             "{}",
