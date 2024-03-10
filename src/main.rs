@@ -8,7 +8,7 @@ fn main() {
     let args = Args::parse();
 
     for path in args.targets {
-        if let Err(err) = cyborg::process_path(path.clone(), args.recursive) {
+        if let Err(err) = cyborg::process::process_path(path.as_path(), args.recursive) {
             log::error!("failed to process path: {}: {}", path.display(), err);
             continue;
         }
