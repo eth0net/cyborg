@@ -20,6 +20,12 @@ pub struct Args {
     #[arg(short, long, value_name = "DIR")]
     pub output: Option<PathBuf>,
 
+    /// Whether to exit on first failure.
+    ///
+    /// If not provided, errors will be logged before continuing.
+    #[arg(short, long)]
+    pub fail_fast: bool,
+
     /// Whether to process directories recursively.
     ///
     /// If not provided, only the top-level files will be processed.

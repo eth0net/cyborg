@@ -10,7 +10,10 @@ fn main() {
     for path in args.targets {
         if let Err(err) = cyborg::process::process_path(path.as_path(), args.recursive) {
             log::error!("failed to process path: {}: {}", path.display(), err);
-            continue;
+            match args.fail_fast {
+                true => return,
+                false => continue,
+            }
         }
     }
 }
