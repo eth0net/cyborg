@@ -3,12 +3,13 @@ use std::path::Path;
 use anyhow::{bail, Context};
 
 use crate::comic::Comic;
+use crate::Args;
 
-pub fn process_path(path: &Path, recursive: bool) -> anyhow::Result<()> {
+pub fn process_path(path: &Path, args: &Args) -> anyhow::Result<()> {
     log::debug!("processing path: {}", path.display());
 
     if path.is_dir() {
-        process_dir(path, recursive)?;
+        process_dir(path, args)?;
     } else if path.is_file() {
         process_file(path)?;
     } else {
@@ -21,12 +22,12 @@ pub fn process_path(path: &Path, recursive: bool) -> anyhow::Result<()> {
     Ok(())
 }
 
-pub fn process_dir(dir: &Path, recursive: bool) -> anyhow::Result<()> {
+pub fn process_dir(dir: &Path, args: &Args) -> anyhow::Result<()> {
     log::debug!("processing dir: {}", dir.display());
 
     for entry in dir.read_dir()? {
         let path = entry?.path();
-        process_path(path.as_path(), recursive)?;
+        process_path(path.as_path(), args)?;
     }
 
     log::debug!("processed dir: {}", dir.display());

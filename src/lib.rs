@@ -20,6 +20,12 @@ pub struct Args {
     #[arg(short, long, value_name = "DIR")]
     pub output: Option<PathBuf>,
 
+    /// Whether to perform actions, or just print steps to be taken.
+    ///
+    /// If not provided, actions will be taken as normal.
+    #[arg(short, long)]
+    pub dry_run: bool,
+
     /// Whether to exit on first failure.
     ///
     /// If not provided, errors will be logged before continuing.
