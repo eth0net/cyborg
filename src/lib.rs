@@ -5,7 +5,7 @@ use clap::Parser;
 pub mod comic;
 pub mod process;
 
-#[derive(Debug, Parser)]
+#[derive(Clone, Debug, Parser)]
 #[command(version, author, about)]
 pub struct Args {
     /// The input files to be organised.
