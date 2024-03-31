@@ -2,8 +2,8 @@ use std::path::Path;
 
 use anyhow::{bail, Context};
 
+use crate::args::Args;
 use crate::comic::Comic;
-use crate::Args;
 
 pub struct Processor {
     args: Args,

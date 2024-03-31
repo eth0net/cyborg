@@ -1,7 +1,7 @@
 use clap::Parser;
 
+use cyborg::args::Args;
 use cyborg::process::Processor;
-use cyborg::Args;
 
 fn main() -> anyhow::Result<()> {
     env_logger::init();
