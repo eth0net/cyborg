@@ -1,3 +1,4 @@
+use std::fs;
 use std::path::Path;
 
 use anyhow::{bail, Context};
@@ -32,8 +33,10 @@ impl Processor {
         log::debug!("processing path: {}", path.display());
 
         if path.is_dir() {
+            log::trace!("path is a directory");
             self.process_dir(path)?;
         } else if path.is_file() {
+            log::trace!("path is a file");
             self.process_file(path)?;
         } else {
             log::warn!("{} is not a file or directory", path.display());
@@ -45,32 +48,48 @@ impl Processor {
         Ok(())
     }
 
-    fn process_dir(&self, dir: &Path) -> anyhow::Result<()> {
-        log::debug!("processing dir: {}", dir.display());
+    fn process_dir(&self, path: &Path) -> anyhow::Result<()> {
+        log::debug!("processing dir: {}", path.display());
 
-        for entry in dir.read_dir()? {
+        for entry in path.read_dir()? {
             let path = entry?.path();
             self.process_path(path.as_path())?;
         }
 
-        log::debug!("processed dir: {}", dir.display());
+        log::debug!("processed dir: {}", path.display());
 
         Ok(())
     }
 
-    fn process_file(&self, file: &Path) -> anyhow::Result<()> {
-        log::debug!("processing file: {}", file.display());
+    fn process_file(&self, path: &Path) -> anyhow::Result<()> {
+        log::debug!("processing file: {}", path.display());
 
-        let name = file.file_name().with_context(|| "getting file name")?;
+        let name = path.file_name().with_context(|| "getting file name")?;
         let name = name.to_str().with_context(|| "converting name to str")?;
 
         log::trace!("old name: {}", name);
 
-        let name: Comic = name.parse()?;
+        let comic: Comic = name.parse()?;
+        let new_name = comic.to_string();
 
-        log::trace!("new name: {}", name);
+        let new_path = match &self.args.output {
+            Some(output) => output.join(&new_name),
+            None => path.with_file_name(&new_name),
+        };
 
-        log::debug!("processed file: {}", name);
+        log::trace!("new name: {}", &new_name);
+
+        match !self.args.dry_run {
+            true => {
+                log::info!("renaming: {} -> {}", path.display(), new_path.display());
+                fs::rename(path, new_path).with_context(|| "renaming file")?;
+            }
+            false => {
+                log::info!("would rename: {} -> {}", path.display(), new_path.display());
+            }
+        }
+
+        log::debug!("processed file: {}", path.display());
 
         Ok(())
     }

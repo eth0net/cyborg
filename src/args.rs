@@ -33,10 +33,8 @@ pub struct Args {
     /// If not provided, only the top-level files will be processed.
     #[arg(short, long)]
     pub recursive: bool,
-    // fast_fail: bool,
     // verbose: bool,
     // quiet: bool,
-    // dry_run: bool,
     // force: bool,
     // config: Option<PathBuf>,
 }
