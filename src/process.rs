@@ -66,12 +66,25 @@ impl Processor {
 
         log::trace!("old name: {}", name);
 
-        let name: Comic = name.parse()?;
+        let comic: Comic = name.parse()?;
+        let name = comic.to_string();
 
-        log::trace!("new name: {}", name);
+        log::trace!("new name: {}", &name);
 
-        log::debug!("processed file: {}", name);
+        std::fs::rename(file, &name).with_context(|| "renaming file")?;
+
+        log::debug!("processed file: {}", &name);
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::args::Args;
+
+    #[test]
+    fn test_process_file() {
+        let args = Args::default();
     }
 }
