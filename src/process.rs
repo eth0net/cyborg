@@ -72,12 +72,14 @@ impl Processor {
         let comic: Comic = name.parse()?;
         let new_name = comic.to_string();
 
+        log::trace!("new name: {}", &new_name);
+
         let new_path = match &self.args.output {
             Some(output) => output.join(&new_name),
             None => path.with_file_name(&new_name),
         };
 
-        log::trace!("new name: {}", &new_name);
+        log::trace!("new path: {}", new_path.display());
 
         match !self.args.dry_run {
             true => {
