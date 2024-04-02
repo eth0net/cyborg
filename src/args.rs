@@ -1,4 +1,4 @@
-use clap::Parser;
+use clap::{ArgAction, Parser};
 use std::path::PathBuf;
 
 #[derive(Clone, Debug, Default, Parser)]
@@ -16,7 +16,7 @@ pub struct Args {
     #[arg(short, long, value_name = "DIR")]
     pub output: Option<PathBuf>,
 
-    /// Whether to perform actions, or just print steps to be taken.
+    /// Whether to perform actions, or just print steps to be taken. Implies -vv.
     ///
     /// If not provided, actions will be taken as normal.
     #[arg(short, long)]
@@ -33,8 +33,18 @@ pub struct Args {
     /// If not provided, only the top-level files will be processed.
     #[arg(short, long)]
     pub recursive: bool,
-    // verbose: bool,
-    // quiet: bool,
+
+    /// Increase verbosity, can be used multiple times.
+    ///
+    /// If not provided, only errors will be logged.
+    #[arg(short, long, action = ArgAction::Count)]
+    pub verbose: u8,
+
+    /// Whether to suppress all output. This will override --verbose.
+    ///
+    /// If not provided, output will be printed as normal.
+    #[arg(short, long)]
+    pub quiet: bool,
     // force: bool,
     // config: Option<PathBuf>,
 }
