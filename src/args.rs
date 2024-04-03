@@ -1,56 +1,61 @@
 use clap::{ArgAction, Parser};
 use std::path::PathBuf;
 
+// todo: check non-recursive directory processing
+// todo: option to clobber existing destination files
+// todo: option to copy files instead of moving them
+// todo: option to clean up empty source directories
+// todo: add support for configuration files
+
 #[derive(Clone, Debug, Default, Parser)]
 #[command(version, author, about)]
 pub struct Args {
-    /// The input files to be organised.
+    /// A list of files or directories to process.
     ///
-    /// If a directory is provided, all files in the directory
-    /// will be processed.
+    /// For a directory, each direct child file will be processed.
     pub targets: Vec<PathBuf>,
 
-    /// The output directory.
+    /// Output directory for organised files.
     ///
-    /// If not provided, files will be written alongside the originals.
-    #[arg(short, long, value_name = "DIR")]
+    /// If the directory does not exist, it will be created.
+    ///
+    /// If not provided, the current directory will be used.
+    #[arg(short, long, default_value = ".", value_name = "DIR")]
     pub output: Option<PathBuf>,
 
-    /// Split series into separate directories in the output directory.
+    /// Organise files into subdirectories by series.
     ///
-    /// If not provided, no directories will be created.
+    /// If not provided, files will be placed in the output directory.
     #[arg(short, long)]
-    pub split_series: bool,
+    pub series: bool,
 
-    /// Whether to perform actions, or just print steps to be taken. Implies -vv.
+    /// Print steps without making changes (implies -vv).
     ///
-    /// If not provided, actions will be taken as normal.
-    #[arg(short, long)]
+    /// If not provided, changes will be made to the filesystem.
+    #[arg(short, long, group = "noisy")]
     pub dry_run: bool,
 
-    /// Whether to exit on first failure.
+    /// Stop processing after the first error.
     ///
-    /// If not provided, errors will be logged before continuing.
+    /// If not provided, errors will be logged and processing will continue.
     #[arg(short, long)]
     pub fail_fast: bool,
 
-    /// Whether to process directories recursively.
+    /// Recursively process files in subdirectories.
     ///
     /// If not provided, only the top-level files will be processed.
     #[arg(short, long)]
     pub recursive: bool,
 
-    /// Increase verbosity, can be used multiple times.
+    /// Increase verbosity (can be used multiple times).
     ///
     /// If not provided, only errors will be logged.
-    #[arg(short, long, action = ArgAction::Count)]
+    #[arg(short, long, action = ArgAction::Count, group = "noisy")]
     pub verbose: u8,
 
-    /// Whether to suppress all output. This will override --verbose.
+    /// Suppress all output (conflicts with verbose).
     ///
     /// If not provided, output will be printed as normal.
-    #[arg(short, long)]
+    #[arg(short, long, conflicts_with = "noisy")]
     pub quiet: bool,
-    // force: bool,
-    // config: Option<PathBuf>,
 }

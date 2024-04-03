@@ -84,7 +84,7 @@ impl Processor {
             bail!("output dir is not a directory");
         }
 
-        let output_dir = match self.args.split_series {
+        let output_dir = match self.args.series {
             true => output_dir.join(comic.series),
             false => output_dir.to_path_buf(),
         };
