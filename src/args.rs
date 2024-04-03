@@ -1,7 +1,6 @@
 use clap::{ArgAction, Parser};
 use std::path::PathBuf;
 
-// todo: check non-recursive directory processing
 // todo: option to clobber existing destination files
 // todo: option to copy files instead of moving them
 // todo: option to clean up empty source directories
@@ -9,6 +8,7 @@ use std::path::PathBuf;
 
 #[derive(Clone, Debug, Default, Parser)]
 #[command(version, author, about)]
+#[group(id = "noisy", multiple = true)]
 pub struct Args {
     /// A list of files or directories to process.
     ///

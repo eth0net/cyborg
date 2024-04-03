@@ -16,34 +16,29 @@ impl Processor {
     }
 
     pub fn process(&self) -> anyhow::Result<()> {
+        log::trace!("processing targets");
+
         for path in &self.args.targets {
-            if let Err(err) = self.process_path(path.as_path()) {
-                log::error!("failed to process path: {}: {}", path.display(), err);
-                match self.args.fail_fast {
-                    true => bail!("processing path: {}: {}", path.display(), err),
-                    false => continue,
+            let meta = path.metadata().context("getting metadata")?;
+
+            let result = match meta.is_dir() {
+                true => self.process_dir(path),
+                false => self.process_file(path),
+            };
+
+            if let Err(err) = result {
+                let context = format!("failed to process: {}", path.display());
+
+                log::error!("{context}: {err}");
+
+                if self.args.fail_fast {
+                    log::trace!("failing fast");
+                    return Err(err).context(context);
                 }
             }
         }
 
-        Ok(())
-    }
-
-    fn process_path(&self, path: &Path) -> anyhow::Result<()> {
-        log::debug!("processing path: {}", path.display());
-
-        if path.is_dir() {
-            log::trace!("path is a directory");
-            self.process_dir(path)?;
-        } else if path.is_file() {
-            log::trace!("path is a file");
-            self.process_file(path)?;
-        } else {
-            log::warn!("{} is not a file or directory", path.display());
-            bail!("not a file or directory");
-        }
-
-        log::debug!("processed path: {}", path.display());
+        log::trace!("processed targets");
 
         Ok(())
     }
@@ -52,8 +47,29 @@ impl Processor {
         log::debug!("processing dir: {}", path.display());
 
         for entry in path.read_dir()? {
-            let path = entry?.path();
-            self.process_path(path.as_path())?;
+            let path = &entry?.path();
+
+            let meta = path.metadata().context("getting metadata")?;
+
+            let result = match [meta.is_dir(), self.args.recursive] {
+                [true, true] => self.process_dir(path),
+                [true, false] => {
+                    log::trace!("skipping dir: {}", path.display());
+                    continue;
+                }
+                [false, _] => self.process_file(path),
+            };
+
+            if let Err(err) = result {
+                let context = format!("failed to process: {}", path.display());
+
+                log::error!("{context}: {err}");
+
+                if self.args.fail_fast {
+                    log::trace!("failing fast");
+                    return Err(err).context(context);
+                }
+            }
         }
 
         log::debug!("processed dir: {}", path.display());
@@ -64,8 +80,8 @@ impl Processor {
     fn process_file(&self, path: &Path) -> anyhow::Result<()> {
         log::debug!("processing file: {}", path.display());
 
-        let name = path.file_name().with_context(|| "getting file name")?;
-        let name = name.to_str().with_context(|| "converting name to str")?;
+        let name = path.file_name().context("getting file name")?;
+        let name = name.to_str().context("converting name to str")?;
 
         log::trace!("old name: {}", name);
 
@@ -76,7 +92,7 @@ impl Processor {
 
         let output_dir = match &self.args.output {
             Some(output) => output,
-            None => path.parent().with_context(|| "getting parent dir")?,
+            None => path.parent().context("getting parent dir")?,
         };
 
         if !output_dir.is_dir() {
@@ -94,7 +110,7 @@ impl Processor {
         match [output_dir.exists(), self.args.dry_run] {
             [false, false] => {
                 log::info!("creating output dir: {}", output_dir.display());
-                fs::create_dir_all(&output_dir).with_context(|| "creating output dir")?;
+                fs::create_dir_all(&output_dir).context("creating output dir")?;
             }
             [false, true] => log::info!("would create output dir: {}", output_dir.display()),
             _ => log::trace!("output dir exists: {}", output_dir.display()),
@@ -107,7 +123,7 @@ impl Processor {
         match !self.args.dry_run {
             true => {
                 log::info!("renaming: {} -> {}", path.display(), new_path.display());
-                fs::rename(path, new_path).with_context(|| "renaming file")?;
+                fs::rename(path, new_path).context("renaming file")?;
             }
             false => {
                 log::info!("would rename: {} -> {}", path.display(), new_path.display());
