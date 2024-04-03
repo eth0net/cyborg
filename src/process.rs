@@ -74,10 +74,33 @@ impl Processor {
 
         log::trace!("new name: {}", &new_name);
 
-        let new_path = match &self.args.output {
-            Some(output) => output.join(&new_name),
-            None => path.with_file_name(&new_name),
+        let output_dir = match &self.args.output {
+            Some(output) => output,
+            None => path.parent().with_context(|| "getting parent dir")?,
         };
+
+        if !output_dir.is_dir() {
+            log::error!("output dir is not a directory: {}", output_dir.display());
+            bail!("output dir is not a directory");
+        }
+
+        let output_dir = match self.args.split_series {
+            true => output_dir.join(comic.series),
+            false => output_dir.to_path_buf(),
+        };
+
+        log::trace!("output dir: {}", output_dir.display());
+
+        match [output_dir.exists(), self.args.dry_run] {
+            [false, false] => {
+                log::info!("creating output dir: {}", output_dir.display());
+                fs::create_dir_all(&output_dir).with_context(|| "creating output dir")?;
+            }
+            [false, true] => log::info!("would create output dir: {}", output_dir.display()),
+            _ => log::trace!("output dir exists: {}", output_dir.display()),
+        }
+
+        let new_path = output_dir.join(new_name);
 
         log::trace!("new path: {}", new_path.display());
 

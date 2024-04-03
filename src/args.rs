@@ -16,6 +16,12 @@ pub struct Args {
     #[arg(short, long, value_name = "DIR")]
     pub output: Option<PathBuf>,
 
+    /// Split series into separate directories in the output directory.
+    ///
+    /// If not provided, no directories will be created.
+    #[arg(short, long)]
+    pub split_series: bool,
+
     /// Whether to perform actions, or just print steps to be taken. Implies -vv.
     ///
     /// If not provided, actions will be taken as normal.
