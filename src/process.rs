@@ -6,6 +6,8 @@ use anyhow::{bail, Context};
 use crate::args::Args;
 use crate::comic::Comic;
 
+// todo: rename to Organiser
+
 pub struct Processor {
     args: Args,
 }
@@ -164,13 +166,20 @@ impl Processor {
 
         log::trace!("new path: {}", new_path.display());
 
-        match !self.args.dry_run {
-            true => {
-                log::info!("renaming: {} -> {}", path.display(), new_path.display());
-                fs::rename(path, new_path).context("renaming file")?;
+        match [self.args.dry_run, self.args.move_files] {
+            [true, true] => {
+                log::info!("would move: {} -> {}", path.display(), new_path.display());
             }
-            false => {
-                log::info!("would rename: {} -> {}", path.display(), new_path.display());
+            [true, false] => {
+                log::info!("would copy: {} -> {}", path.display(), new_path.display());
+            }
+            [false, true] => {
+                log::info!("moving: {} -> {}", path.display(), new_path.display());
+                fs::rename(path, new_path).context("moving file")?;
+            }
+            [false, false] => {
+                log::info!("copying: {} -> {}", path.display(), new_path.display());
+                fs::rename(path, new_path).context("renaming file")?;
             }
         }
 

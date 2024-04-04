@@ -1,9 +1,7 @@
 use clap::{ArgAction, Parser};
 use std::path::PathBuf;
 
-// todo: rename to Organiser
 // todo: option to clobber existing destination files
-// todo: option to copy files instead of moving them
 // todo: option to clean up empty source directories
 // todo: add support for configuration files
 
@@ -29,6 +27,12 @@ pub struct Args {
     /// If not provided, files will be placed in the output directory.
     #[arg(short, long)]
     pub series: bool,
+
+    /// Move files instead of copying them.
+    ///
+    /// If not provided, files will be copied to the output directory.
+    #[arg(short, long)]
+    pub move_files: bool,
 
     /// Print steps without making changes (implies -vv).
     ///
