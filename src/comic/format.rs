@@ -1,9 +1,11 @@
 use std::fmt::Display;
 use std::str::FromStr;
 
-pub use error::FormatError;
+use thiserror::Error;
 
-mod error;
+#[derive(Debug, Error)]
+#[error("invalid format")]
+pub struct FormatError;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Format {

@@ -1,44 +1,23 @@
-use std::error::Error;
-use std::fmt::Display;
 use std::num::ParseIntError;
+
+use thiserror::Error;
 
 use super::FormatError;
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum ComicError {
+    #[error("invalid input: no capture groups matched")]
     GetCaptures,
+    #[error("failed to parse series name")]
     ParseSeries,
-    ParseNumber(ParseIntError),
-    ParseOf(ParseIntError),
-    ParseYear(ParseIntError),
+    #[error("failed to parse issue number")]
+    ParseNumber(#[source] ParseIntError),
+    #[error("failed to parse issue of number")]
+    ParseOf(#[source] ParseIntError),
+    #[error("failed to parse year")]
+    ParseYear(#[source] ParseIntError),
+    #[error("failed to get format")]
     GetFormat,
-    ParseFormat(FormatError),
-}
-
-impl Display for ComicError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ComicError::GetCaptures => write!(f, "invalid input: no capture groups matched"),
-            ComicError::ParseSeries => write!(f, "failed to parse series name"),
-            ComicError::ParseNumber(_) => write!(f, "failed to parse issue number"),
-            ComicError::ParseOf(_) => write!(f, "failed to parse issue of number"),
-            ComicError::ParseYear(_) => write!(f, "failed to parse year"),
-            ComicError::GetFormat => write!(f, "failed to get format"),
-            ComicError::ParseFormat(_) => write!(f, "failed to parse format"),
-        }
-    }
-}
-
-impl Error for ComicError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        match self {
-            ComicError::GetCaptures => None,
-            ComicError::ParseSeries => None,
-            ComicError::ParseNumber(err) => Some(err),
-            ComicError::ParseOf(err) => Some(err),
-            ComicError::ParseYear(err) => Some(err),
-            ComicError::GetFormat => None,
-            ComicError::ParseFormat(err) => Some(err),
-        }
-    }
+    #[error("failed to parse format")]
+    ParseFormat(#[source] FormatError),
 }
