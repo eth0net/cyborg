@@ -179,7 +179,7 @@ impl Processor {
             }
             [false, false] => {
                 log::info!("copying: {} -> {}", path.display(), new_path.display());
-                fs::rename(path, new_path).context("renaming file")?;
+                fs::copy(path, new_path).context("copying file")?;
             }
         }
 
