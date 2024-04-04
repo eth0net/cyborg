@@ -2,7 +2,6 @@ use clap::{ArgAction, Parser};
 use std::path::PathBuf;
 
 // todo: rename to Organiser
-// todo: rename fail fast to stop on error
 // todo: option to clobber existing destination files
 // todo: option to copy files instead of moving them
 // todo: option to clean up empty source directories
@@ -40,8 +39,8 @@ pub struct Args {
     /// Stop processing after the first error.
     ///
     /// If not provided, errors will be logged and processing will continue.
-    #[arg(short, long)]
-    pub fail_fast: bool,
+    #[arg(short, long, default_value = "false")]
+    pub exit: bool,
 
     /// Recursively process files in subdirectories.
     ///

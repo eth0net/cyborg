@@ -23,7 +23,7 @@ impl Processor {
 
             if let Err(err) = result {
                 let message = format!("failed to get metadata for: {}", path.display());
-                match self.args.fail_fast {
+                match self.args.exit {
                     true => return Err(err).context(message),
                     false => {
                         log::error!("{message}: {err:#}");
@@ -42,7 +42,7 @@ impl Processor {
 
             if let Err(err) = result {
                 let message = format!("failed to process target: {}", path.display());
-                match self.args.fail_fast {
+                match self.args.exit {
                     true => return Err(err).context(message),
                     false => {
                         log::error!("{message}: {err:#}");
@@ -69,7 +69,7 @@ impl Processor {
         for entry in directory {
             if let Err(err) = entry {
                 let message = format!("failed to read directory entry: {}", path.display());
-                match self.args.fail_fast {
+                match self.args.exit {
                     true => return Err(err).context(message),
                     false => {
                         log::error!("{message}: {err:#}");
@@ -84,7 +84,7 @@ impl Processor {
 
             if let Err(err) = result {
                 let message = format!("failed to get metadata for: {}", path.display());
-                match self.args.fail_fast {
+                match self.args.exit {
                     true => return Err(err).context(message),
                     false => {
                         log::error!("{message}: {err:#}");
@@ -107,7 +107,7 @@ impl Processor {
 
             if let Err(err) = result {
                 let message = format!("failed to process directory entry: {}", path.display());
-                match self.args.fail_fast {
+                match self.args.exit {
                     true => return Err(err).context(message),
                     false => {
                         log::error!("{message}: {err:#}");
