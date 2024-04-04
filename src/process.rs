@@ -19,7 +19,21 @@ impl Processor {
         log::trace!("processing targets");
 
         for path in &self.args.targets {
-            let meta = path.metadata().context("getting metadata")?;
+            let result = path.metadata();
+
+            if let Err(err) = result {
+                let message = format!("failed to get metadata for: {}", path.display());
+                match self.args.fail_fast {
+                    true => return Err(err).context(message),
+                    false => {
+                        log::error!("{message}: {err:#}");
+                        continue;
+                    }
+                }
+            }
+
+            log::trace!("got metadata for: {}", path.display());
+            let meta = result.unwrap();
 
             let result = match meta.is_dir() {
                 true => self.process_dir(path),
@@ -27,13 +41,13 @@ impl Processor {
             };
 
             if let Err(err) = result {
-                let context = format!("failed to process: {}", path.display());
-
-                log::error!("{context}: {err}");
-
-                if self.args.fail_fast {
-                    log::trace!("failing fast");
-                    return Err(err).context(context);
+                let message = format!("failed to process target: {}", path.display());
+                match self.args.fail_fast {
+                    true => return Err(err).context(message),
+                    false => {
+                        log::error!("{message}: {err:#}");
+                        continue;
+                    }
                 }
             }
         }
@@ -46,28 +60,59 @@ impl Processor {
     fn process_dir(&self, path: &Path) -> anyhow::Result<()> {
         log::debug!("processing dir: {}", path.display());
 
-        for entry in path.read_dir()? {
-            let path = &entry?.path();
+        let directory = path
+            .read_dir()
+            .with_context(|| format!("failed to read directory: {}", path.display()))?;
 
-            let meta = path.metadata().context("getting metadata")?;
+        log::trace!("read dir: {}", path.display());
+
+        for entry in directory {
+            if let Err(err) = entry {
+                let message = format!("failed to read directory entry: {}", path.display());
+                match self.args.fail_fast {
+                    true => return Err(err).context(message),
+                    false => {
+                        log::error!("{message}: {err:#}");
+                        continue;
+                    }
+                }
+            }
+
+            let path = &entry.unwrap().path();
+
+            let result = path.metadata();
+
+            if let Err(err) = result {
+                let message = format!("failed to get metadata for: {}", path.display());
+                match self.args.fail_fast {
+                    true => return Err(err).context(message),
+                    false => {
+                        log::error!("{message}: {err:#}");
+                        continue;
+                    }
+                }
+            }
+
+            log::trace!("got metadata for: {}", path.display());
+            let meta = result.unwrap();
 
             let result = match [meta.is_dir(), self.args.recursive] {
                 [true, true] => self.process_dir(path),
                 [true, false] => {
-                    log::trace!("skipping dir: {}", path.display());
+                    log::trace!("skipping subdirectory: {}", path.display());
                     continue;
                 }
                 [false, _] => self.process_file(path),
             };
 
             if let Err(err) = result {
-                let context = format!("failed to process: {}", path.display());
-
-                log::error!("{context}: {err}");
-
-                if self.args.fail_fast {
-                    log::trace!("failing fast");
-                    return Err(err).context(context);
+                let message = format!("failed to process directory entry: {}", path.display());
+                match self.args.fail_fast {
+                    true => return Err(err).context(message),
+                    false => {
+                        log::error!("{message}: {err:#}");
+                        continue;
+                    }
                 }
             }
         }
@@ -96,7 +141,6 @@ impl Processor {
         };
 
         if !output_dir.is_dir() {
-            log::error!("output dir is not a directory: {}", output_dir.display());
             bail!("output dir is not a directory");
         }
 

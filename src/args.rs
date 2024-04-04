@@ -1,6 +1,8 @@
 use clap::{ArgAction, Parser};
 use std::path::PathBuf;
 
+// todo: rename to Organiser
+// todo: rename fail fast to stop on error
 // todo: option to clobber existing destination files
 // todo: option to copy files instead of moving them
 // todo: option to clean up empty source directories
