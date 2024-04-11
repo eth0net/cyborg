@@ -25,12 +25,10 @@ impl Processor {
 
             if let Err(err) = result {
                 let message = format!("failed to get metadata for: {}", path.display());
+                log::error!("{message}: {err:#}");
                 match self.args.exit {
                     true => return Err(err).context(message),
-                    false => {
-                        log::error!("{message}: {err:#}");
-                        continue;
-                    }
+                    false => continue,
                 }
             }
 
@@ -44,12 +42,10 @@ impl Processor {
 
             if let Err(err) = result {
                 let message = format!("failed to process target: {}", path.display());
+                log::error!("{message}: {err:#}");
                 match self.args.exit {
                     true => return Err(err).context(message),
-                    false => {
-                        log::error!("{message}: {err:#}");
-                        continue;
-                    }
+                    false => continue,
                 }
             }
         }
@@ -69,14 +65,13 @@ impl Processor {
         log::trace!("read dir: {}", path.display());
 
         for entry in directory {
+            log::trace!("processing directory entry");
             if let Err(err) = entry {
                 let message = format!("failed to read directory entry: {}", path.display());
+                log::error!("{message}: {err:#}");
                 match self.args.exit {
                     true => return Err(err).context(message),
-                    false => {
-                        log::error!("{message}: {err:#}");
-                        continue;
-                    }
+                    false => continue,
                 }
             }
 
@@ -86,12 +81,10 @@ impl Processor {
 
             if let Err(err) = result {
                 let message = format!("failed to get metadata for: {}", path.display());
+                log::error!("{message}: {err:#}");
                 match self.args.exit {
                     true => return Err(err).context(message),
-                    false => {
-                        log::error!("{message}: {err:#}");
-                        continue;
-                    }
+                    false => continue,
                 }
             }
 
@@ -109,12 +102,10 @@ impl Processor {
 
             if let Err(err) = result {
                 let message = format!("failed to process directory entry: {}", path.display());
+                log::error!("{message}: {err:#}");
                 match self.args.exit {
                     true => return Err(err).context(message),
-                    false => {
-                        log::error!("{message}: {err:#}");
-                        continue;
-                    }
+                    false => continue,
                 }
             }
         }
@@ -137,13 +128,11 @@ impl Processor {
 
         log::trace!("new name: {}", &new_name);
 
-        let output_dir = match &self.args.output {
-            Some(output) => output,
-            None => path.parent().context("getting parent dir")?,
-        };
+        let output_dir = &self.args.output;
 
-        if !output_dir.is_dir() {
-            bail!("output dir is not a directory");
+        if output_dir.exists() && !output_dir.is_dir() {
+            log::error!("output path is not a directory: {}", output_dir.display());
+            bail!("output path is not a directory");
         }
 
         let output_dir = match self.args.series {
@@ -166,6 +155,26 @@ impl Processor {
 
         log::trace!("new path: {}", new_path.display());
 
+        if new_path.exists() {
+            log::debug!("file already exists: {}", new_path.display());
+            match [self.args.dry_run, self.args.force] {
+                [true, true] => {
+                    log::warn!("would overwrite existing file: {}", new_path.display());
+                }
+                [true, false] => {
+                    log::error!("would skip existing file: {}", new_path.display());
+                    bail!("skipping existing file: {}", new_path.display());
+                }
+                [false, true] => {
+                    log::warn!("overwriting existing file: {}", new_path.display());
+                }
+                [false, false] => {
+                    log::error!("skipping existing file: {}", new_path.display());
+                    bail!("skipping existing file: {}", new_path.display());
+                }
+            }
+        }
+
         match [self.args.dry_run, self.args.move_files] {
             [true, true] => {
                 log::info!("would move: {} -> {}", path.display(), new_path.display());
@@ -186,5 +195,489 @@ impl Processor {
         log::debug!("processed file: {}", path.display());
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use temp_dir::TempDir;
+    use test_log::test;
+
+    use super::*;
+
+    #[test]
+    fn test_process_multiple_targets() {
+        let dir = TempDir::new().expect("should create temp dir");
+        let source_dir = dir.child("source");
+        let output_dir = dir.child("output");
+        let source_sub_dir = source_dir.join("sub");
+
+        let name_1 = "Test 001.cbz";
+        let source_file_1 = source_dir.join(name_1);
+        let output_file_1 = output_dir.join(name_1);
+
+        let name_2 = "Test 002.cbz";
+        let source_file_2 = source_sub_dir.join(name_2);
+        let output_file_2 = output_dir.join(name_2);
+
+        std::fs::create_dir_all(&source_dir).expect("should create source dir");
+        std::fs::create_dir_all(&output_dir).expect("should create output dir");
+        std::fs::create_dir_all(&source_sub_dir).expect("should create source sub dir");
+        fs::write(&source_file_1, "").expect("should create first source file");
+        fs::write(&source_file_2, "").expect("should create second source file");
+
+        let processor = Processor::with_args(Args {
+            targets: vec![source_file_1.clone(), source_sub_dir.clone()],
+            output: output_dir,
+            ..Default::default()
+        });
+
+        processor.process().expect("should process");
+
+        assert!(
+            source_file_1.exists(),
+            "source file should still exist: {}",
+            source_file_1.display()
+        );
+        assert!(
+            output_file_1.exists(),
+            "output file should have been created: {}",
+            output_file_1.display()
+        );
+        assert!(
+            source_file_2.exists(),
+            "source file should still exist: {}",
+            source_file_2.display()
+        );
+        assert!(
+            output_file_2.exists(),
+            "output file should have been created: {}",
+            output_file_2.display()
+        );
+    }
+
+    #[test]
+    fn test_process_recursive() {
+        let dir = TempDir::new().expect("should create temp dir");
+        let source_dir = dir.child("source");
+        let output_dir = dir.child("output");
+        let source_sub_dir = source_dir.join("sub");
+
+        let name_1 = "Test 001.cbz";
+        let source_file_1 = source_dir.join(name_1);
+        let output_file_1 = output_dir.join(name_1);
+
+        let name_2 = "Test 002.cbz";
+        let source_file_2 = source_sub_dir.join(name_2);
+        let output_file_2 = output_dir.join(name_2);
+
+        std::fs::create_dir_all(&source_dir).expect("should create source dir");
+        std::fs::create_dir_all(&output_dir).expect("should create output dir");
+        std::fs::create_dir_all(&source_sub_dir).expect("should create source sub dir");
+        fs::write(&source_file_1, "").expect("should create first source file");
+        fs::write(&source_file_2, "").expect("should create second source file");
+
+        let processor = Processor::with_args(Args {
+            targets: vec![source_dir],
+            output: output_dir,
+            recursive: true,
+            ..Default::default()
+        });
+
+        processor.process().expect("should process");
+
+        assert!(
+            source_file_1.exists(),
+            "source file should still exist: {}",
+            source_file_1.display()
+        );
+        assert!(
+            output_file_1.exists(),
+            "output file should have been created: {}",
+            output_file_1.display()
+        );
+        assert!(
+            source_file_2.exists(),
+            "source file should still exist: {}",
+            source_file_2.display()
+        );
+        assert!(
+            output_file_2.exists(),
+            "output file should have been created: {}",
+            output_file_2.display()
+        );
+    }
+
+    #[test]
+    fn test_process_non_recursive() {
+        let dir = TempDir::new().expect("should create temp dir");
+        let source_dir = dir.child("source");
+        let output_dir = dir.child("output");
+        let source_sub_dir = source_dir.join("sub");
+
+        std::fs::create_dir_all(&source_dir).expect("should create source dir");
+        std::fs::create_dir_all(&output_dir).expect("should create output dir");
+        std::fs::create_dir_all(&source_sub_dir).expect("should create source sub dir");
+
+        let name = "Test 001.cbz";
+        let source_file = source_sub_dir.join(name);
+        let output_file = output_dir.join(name);
+
+        fs::write(&source_file, "").expect("should create second source file");
+
+        let processor = Processor::with_args(Args {
+            targets: vec![source_dir],
+            output: output_dir,
+            ..Default::default()
+        });
+
+        processor.process().expect("should process");
+
+        assert!(
+            source_file.exists(),
+            "source file should still exist: {}",
+            source_file.display()
+        );
+        assert!(
+            !output_file.exists(),
+            "output file should not have been created: {}",
+            output_file.display()
+        );
+    }
+
+    #[test]
+    fn test_process_move() {
+        let dir = TempDir::new().expect("should create temp dir");
+        let source_dir = dir.child("source");
+        let output_dir = dir.child("output");
+
+        let name = "Test 001.cbz";
+        let source_file = source_dir.join(name);
+        let output_file = output_dir.join(name);
+
+        std::fs::create_dir_all(&source_dir).expect("should create source dir");
+        std::fs::create_dir_all(&output_dir).expect("should create output dir");
+        fs::write(&source_file, "").expect("should create first source file");
+
+        let processor = Processor::with_args(Args {
+            targets: vec![source_dir],
+            output: output_dir,
+            move_files: true,
+            ..Default::default()
+        });
+
+        processor.process().expect("should process");
+
+        assert!(
+            !source_file.exists(),
+            "source file should not still exist: {}",
+            source_file.display()
+        );
+        assert!(
+            output_file.exists(),
+            "output file should have been created: {}",
+            output_file.display()
+        );
+    }
+
+    #[test]
+    fn test_process_exit() {
+        let dir = TempDir::new().expect("should create temp dir");
+        let source_dir = dir.child("source");
+        let output_dir = dir.child("output");
+
+        let name_1 = "Test 001.cbz";
+        let source_file_1 = source_dir.join(name_1);
+        let output_file_1 = output_dir.join(name_1);
+
+        let name_2 = "Test 002.cbz";
+        let source_file_2 = source_dir.join(name_2);
+        let output_file_2 = output_dir.join(name_2);
+
+        let contents = "contents";
+
+        std::fs::create_dir_all(&source_dir).expect("should create source dir");
+        std::fs::create_dir_all(&output_dir).expect("should create output dir");
+        fs::write(&source_file_1, contents).expect("should create first source file");
+        fs::write(&output_file_1, "").expect("should create first output file");
+        fs::write(&source_file_2, "").expect("should create second source file");
+
+        let processor = Processor::with_args(Args {
+            targets: vec![source_file_1.clone(), source_file_2.clone()],
+            output: output_dir,
+            move_files: true,
+            exit: true,
+            ..Default::default()
+        });
+
+        processor.process().expect_err("should exit early");
+
+        assert!(
+            source_file_1.exists(),
+            "source file should still exist: {}",
+            source_file_1.display()
+        );
+        assert!(
+            output_file_1.exists(),
+            "output file should exist: {}",
+            output_file_1.display()
+        );
+        assert_eq!(
+            fs::read_to_string(&output_file_1).expect("should read output file"),
+            "",
+            "output file should not have been overwritten"
+        );
+        assert!(
+            source_file_2.exists(),
+            "source file should still exist: {}",
+            source_file_2.display()
+        );
+        assert!(
+            !output_file_2.exists(),
+            "output file should not have been created: {}",
+            output_file_2.display()
+        );
+    }
+
+    #[test]
+    fn test_process_force() {
+        let dir = TempDir::new().expect("should create temp dir");
+        let source_dir = dir.child("source");
+        let output_dir = dir.child("output");
+
+        let name = "Test 001.cbz";
+        let source_file = source_dir.join(name);
+        let output_file = output_dir.join(name);
+
+        let contents = "contents";
+
+        std::fs::create_dir_all(&source_dir).expect("should create source dir");
+        std::fs::create_dir_all(&output_dir).expect("should create output dir");
+        fs::write(&source_file, contents).expect("should create first source file");
+        fs::write(&output_file, "").expect("should create first source file");
+
+        let processor = Processor::with_args(Args {
+            targets: vec![source_dir],
+            output: output_dir,
+            move_files: true,
+            force: true,
+            ..Default::default()
+        });
+
+        processor.process().expect("should process");
+
+        assert!(
+            !source_file.exists(),
+            "source file should not still exist: {}",
+            source_file.display()
+        );
+        assert!(
+            output_file.exists(),
+            "output file should have been created: {}",
+            output_file.display()
+        );
+        assert_eq!(
+            fs::read_to_string(&output_file).expect("should read output file"),
+            contents,
+            "output file should have been overwritten"
+        );
+    }
+
+    #[test]
+    fn test_process_no_force() {
+        let dir = TempDir::new().expect("should create temp dir");
+        let source_dir = dir.child("source");
+        let output_dir = dir.child("output");
+
+        let name = "Test 001.cbz";
+        let source_file = source_dir.join(name);
+        let output_file = output_dir.join(name);
+
+        let contents = "contents";
+
+        std::fs::create_dir_all(&source_dir).expect("should create source dir");
+        std::fs::create_dir_all(&output_dir).expect("should create output dir");
+        fs::write(&source_file, contents).expect("should create first source file");
+        fs::write(&output_file, "").expect("should create first source file");
+
+        let processor = Processor::with_args(Args {
+            targets: vec![source_dir],
+            output: output_dir,
+            move_files: true,
+            force: false,
+            ..Default::default()
+        });
+
+        processor.process().expect("should process");
+
+        assert!(
+            source_file.exists(),
+            "source file should still exist: {}",
+            source_file.display()
+        );
+        assert!(
+            output_file.exists(),
+            "output file should exist: {}",
+            output_file.display()
+        );
+        assert_eq!(
+            fs::read_to_string(&output_file).expect("should read output file"),
+            "",
+            "output file should not have been overwritten"
+        );
+    }
+
+    #[test]
+    fn test_process_series() {
+        let dir = TempDir::new().expect("should create temp dir");
+        let source_dir = dir.child("source");
+        let output_dir = dir.child("output");
+
+        let series = "Test";
+        let series_dir = output_dir.join(series);
+
+        let name = "Test 001.cbz";
+        let source_file = source_dir.join(name);
+        let output_file = series_dir.join(name);
+
+        std::fs::create_dir_all(&source_dir).expect("should create source dir");
+        std::fs::create_dir_all(&output_dir).expect("should create output dir");
+        fs::write(&source_file, "").expect("should create first source file");
+
+        assert!(
+            !series_dir.exists(),
+            "series dir should not exist before process: {}",
+            series_dir.display()
+        );
+
+        let processor = Processor::with_args(Args {
+            targets: vec![source_dir],
+            output: output_dir,
+            series: true,
+            ..Default::default()
+        });
+
+        processor.process().expect("should process");
+
+        assert!(
+            source_file.exists(),
+            "source file should still exist: {}",
+            source_file.display()
+        );
+        assert!(
+            series_dir.exists(),
+            "series dir should have been created: {}",
+            series_dir.display()
+        );
+        assert!(
+            output_file.exists(),
+            "output file should have been created: {}",
+            output_file.display()
+        );
+    }
+
+    #[test]
+    fn test_process_creates_output_dir() {
+        let dir = TempDir::new().expect("should create temp dir");
+        let source_dir = dir.child("source");
+        let output_dir = dir.child("output");
+
+        let name = "Test 001.cbz";
+        let source_file = source_dir.join(name);
+        let output_file = output_dir.join(name);
+
+        std::fs::create_dir_all(&source_dir).expect("should create source dir");
+        fs::write(&source_file, "").expect("should create source file");
+
+        assert!(
+            !output_dir.exists(),
+            "output dir should not exist before process: {}",
+            output_dir.display()
+        );
+
+        let processor = Processor::with_args(Args {
+            targets: vec![source_dir.clone()],
+            output: output_dir.clone(),
+            ..Default::default()
+        });
+
+        processor.process().expect("should process");
+
+        assert!(
+            output_dir.exists(),
+            "output dir should have been created: {}",
+            output_dir.display()
+        );
+        assert!(
+            source_file.exists(),
+            "source file should still exist: {}",
+            source_file.display()
+        );
+        assert!(
+            output_file.exists(),
+            "output file should have been created: {}",
+            output_file.display()
+        );
+    }
+
+    #[test]
+    fn test_process_dry_run() {
+        let dir = TempDir::new().expect("should create temp dir");
+        let source_dir = dir.child("source");
+        let output_dir = dir.child("output");
+
+        let series = "Test";
+        let series_dir = output_dir.join(series);
+
+        let name = "Test 001.cbz";
+        let source_file = source_dir.join(name);
+        let output_file = output_dir.join(name);
+
+        std::fs::create_dir_all(&source_dir).expect("should create source dir");
+        fs::write(&source_file, "").expect("should create source file");
+
+        assert!(
+            !output_dir.exists(),
+            "output dir should not exist before process: {}",
+            output_dir.display()
+        );
+        assert!(
+            !series_dir.exists(),
+            "series dir should not exist before process: {}",
+            series_dir.display()
+        );
+
+        let processor = Processor::with_args(Args {
+            targets: vec![source_dir.clone()],
+            output: output_dir.clone(),
+            series: true,
+            move_files: true,
+            dry_run: true,
+            force: true,
+            ..Default::default()
+        });
+
+        processor.process().expect("should process");
+
+        assert!(
+            !output_dir.exists(),
+            "output dir should not be created: {}",
+            output_dir.display()
+        );
+        assert!(
+            !series_dir.exists(),
+            "series dir should not be created: {}",
+            series_dir.display()
+        );
+        assert!(
+            source_file.exists(),
+            "source file should still exist: {}",
+            source_file.display()
+        );
+        assert!(
+            !output_file.exists(),
+            "output file should not be created: {}",
+            output_file.display()
+        );
     }
 }

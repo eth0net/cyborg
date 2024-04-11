@@ -1,7 +1,6 @@
 use clap::{ArgAction, Parser};
 use std::path::PathBuf;
 
-// todo: option to clobber existing destination files
 // todo: option to clean up empty source directories
 // todo: add support for configuration files
 
@@ -20,7 +19,7 @@ pub struct Args {
     ///
     /// If not provided, the current directory will be used.
     #[arg(short, long, default_value = ".", value_name = "DIR")]
-    pub output: Option<PathBuf>,
+    pub output: PathBuf,
 
     /// Organise files into subdirectories by series.
     ///
@@ -45,6 +44,12 @@ pub struct Args {
     /// If not provided, errors will be logged and processing will continue.
     #[arg(short, long, default_value = "false")]
     pub exit: bool,
+
+    /// Overwrite existing files in the output directory.
+    ///
+    /// If not provided, existing files will be skipped.
+    #[arg(short, long)]
+    pub force: bool,
 
     /// Recursively process files in subdirectories.
     ///
