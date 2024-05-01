@@ -2,14 +2,16 @@ use clap::Parser;
 
 use cyborg::args::Args;
 use cyborg::logger;
-use cyborg::process::Processor;
+use cyborg::process::{Processor, ProcessorSettings};
 
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
 
     logger::init(&args);
 
-    let processor = Processor::with_args(args.clone());
+    let settings = ProcessorSettings::from_args(&args);
 
-    processor.process()
+    let processor = Processor::new(settings);
+
+    processor.process(args.targets)
 }
