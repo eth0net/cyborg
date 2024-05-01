@@ -1,15 +1,16 @@
 use std::fmt::Display;
 use std::str::FromStr;
 
-pub use error::ComicError;
-pub use format::{Format, FormatError};
-
 mod error;
 mod format;
 mod parse;
 mod regex;
 
+pub use error::ComicError;
+pub use format::{Format, FormatError};
+
 #[derive(Debug, PartialEq, Eq)]
+/// A comic.
 pub struct Comic {
     // Name of the series.
     //

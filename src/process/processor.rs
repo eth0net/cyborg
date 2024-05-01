@@ -1,24 +1,25 @@
-use std::{
-    fs,
-    path::{Path, PathBuf},
-};
+use std::fs;
+use std::path::{Path, PathBuf};
 
 use anyhow::Context;
 
 use crate::comic::Comic;
-
-use super::ProcessorSettings;
+use crate::process::ProcessorSettings;
 
 #[derive(Default)]
+/// Processor for organising comic files
 pub struct Processor {
+    /// Settings for the processor
     settings: ProcessorSettings,
 }
 
 impl Processor {
+    /// Create a new Processor instance with the provided settings
     pub fn new(settings: ProcessorSettings) -> Processor {
         Self { settings }
     }
 
+    /// Process the provided targets
     pub fn process(&self, targets: Vec<PathBuf>) -> anyhow::Result<()> {
         log::trace!("processing targets");
 
@@ -56,8 +57,11 @@ impl Processor {
 
         Ok(())
     }
+}
 
-    pub(crate) fn process_dir(&self, path: &Path) -> anyhow::Result<()> {
+impl Processor {
+    /// Process the provided directory
+    fn process_dir(&self, path: &Path) -> anyhow::Result<()> {
         log::debug!("processing dir: {}", path.display());
 
         let directory = path
@@ -117,7 +121,8 @@ impl Processor {
         Ok(())
     }
 
-    pub(crate) fn process_file(&self, path: &Path) -> anyhow::Result<()> {
+    /// Process the provided file
+    fn process_file(&self, path: &Path) -> anyhow::Result<()> {
         log::debug!("processing file: {}", path.display());
 
         let name = path.file_name().context("getting file name")?;

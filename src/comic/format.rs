@@ -5,13 +5,19 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 #[error("invalid format")]
+/// Error that occurs when parsing a comic book format.
 pub struct FormatError;
 
 #[derive(Debug, PartialEq, Eq)]
+/// The format of a comic book file.
 pub enum Format {
+    /// 7z archive.
     Cb7,
+    /// Rar archive.
     Cbr,
+    /// Tar archive.
     Cbt,
+    /// Zip archive.
     Cbz,
 }
 

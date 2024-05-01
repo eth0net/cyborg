@@ -2,9 +2,10 @@ use std::num::ParseIntError;
 
 use thiserror::Error;
 
-use super::FormatError;
+use crate::comic::FormatError;
 
 #[derive(Debug, Error)]
+/// Errors that can occur when parsing a comic book file name.
 pub enum ComicError {
     #[error("invalid input: no capture groups matched")]
     GetCaptures,

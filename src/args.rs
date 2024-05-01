@@ -7,6 +7,7 @@ use std::path::PathBuf;
 #[derive(Clone, Debug, Default, Parser)]
 #[command(version, author, about)]
 #[group(id = "noisy", multiple = true)]
+/// Arguments for the application binary.
 pub struct Args {
     /// A list of files or directories to process.
     ///

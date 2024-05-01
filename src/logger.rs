@@ -2,6 +2,7 @@ use log::LevelFilter;
 
 use crate::args::Args;
 
+/// Initialize the logger.
 pub fn init(args: &Args) {
     let mut level = match args.verbose {
         0 => LevelFilter::Error,
