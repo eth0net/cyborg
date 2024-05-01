@@ -12,51 +12,51 @@ pub use format::{Format, FormatError};
 #[derive(Debug, PartialEq, Eq)]
 /// A comic.
 pub struct Comic {
-    // Name of the series.
-    //
-    // This should always be present as all comics,
-    // even one-shots and volumes, are part of a series.
+    /// Name of the series.
+    ///
+    /// This should always be present as all comics,
+    /// even one-shots and volumes are part of a series.
     pub series: String,
 
-    // Issue or volume number.
-    //
-    // This should be present for regular issues and volumes,
-    // but often not for one-shots or collected editions.
-    //
-    // Optional since not all comics have a number.
+    /// Issue or volume number.
+    ///
+    /// This should be present for regular issues and volumes,
+    /// but often not for one-shots or collected editions.
+    ///
+    /// Optional since not all comics have a number.
     pub number: Option<usize>,
 
-    // Issue or volume suffix.
-    //
-    // This is often not present for regular issues,
-    // but is often used for annuals and special issues.
+    /// Issue or volume suffix.
+    ///
+    /// This is often not present for regular issues,
+    /// but is often used for annuals and special issues.
     pub suffix: Option<String>,
 
-    // Total number of issues in the series.
-    //
-    // This is often not present for regular issues,
-    // but is usually present for limited series.
+    /// Total number of issues in the series.
+    ///
+    /// This is often not present for regular issues,
+    /// but is usually present for limited series.
     pub of: Option<usize>,
 
-    // Issue title.
-    //
-    // This is often not present for regular issues,
-    // but is often present for one-shots and collected editions.
+    /// Issue title.
+    ///
+    /// This is often not present for regular issues,
+    /// but is often present for one-shots and collected editions.
     pub title: Option<String>,
 
-    // Year on the cover.
-    //
-    // This is nearly always present, but is optional
-    // since year may not be known for all comics.
+    /// Year on the cover.
+    ///
+    /// This is nearly always present, but is optional
+    /// since year may not be known for all comics.
     pub year: Option<usize>,
 
-    // Tags for the comic.
-    //
-    // This may or may not be present for all comics,
-    // but is optional since not all comics have tags.
+    /// Tags for the comic.
+    ///
+    /// This may or may not be present for all comics,
+    /// but is optional since not all comics have tags.
     pub tags: Vec<String>,
 
-    // Format of the comic.
+    /// Format of the comic.
     pub format: Format,
 }
 
