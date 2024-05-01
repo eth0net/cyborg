@@ -1,7 +1,7 @@
 use once_cell::sync::Lazy;
 use regex::Regex;
 
-static COMIC_REGEX: &str = r"(?x)
+static META_REGEX: &str = r"(?x)
         ^
         # Series name, or full name for non-serial comics.
         (?<series>[\w\s\#()&'+-.]+?)
@@ -28,4 +28,4 @@ static COMIC_REGEX: &str = r"(?x)
         \.(?<format>[Cc][Bb][7RrTtZz])
         $";
 
-pub(super) static COMIC: Lazy<Regex> = Lazy::new(|| Regex::new(COMIC_REGEX).unwrap());
+pub(super) static META: Lazy<Regex> = Lazy::new(|| Regex::new(META_REGEX).unwrap());

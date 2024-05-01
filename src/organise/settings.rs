@@ -1,10 +1,10 @@
 use std::path::PathBuf;
 
-use crate::args::Args;
+use crate::command::Args;
 
 #[derive(Default)]
 /// Settings for the processor
-pub struct ProcessorSettings {
+pub struct Settings {
     /// The output directory for the processed files
     pub output: PathBuf,
     /// Whether to output files in series subdirectories
@@ -21,15 +21,15 @@ pub struct ProcessorSettings {
     pub recursive: bool,
 }
 
-impl ProcessorSettings {
+impl Settings {
     /// Create a new ProcessorSettings instance with default values
-    pub fn new() -> ProcessorSettings {
-        ProcessorSettings::default()
+    pub fn new() -> Settings {
+        Settings::default()
     }
 
     /// Create a new ProcessorSettings instance from the provided Args
-    pub fn from_args(args: &Args) -> ProcessorSettings {
-        ProcessorSettings {
+    pub fn from_args(args: &Args) -> Settings {
+        Settings {
             output: args.output.clone(),
             series: args.series,
             move_files: args.move_files,

@@ -1,8 +1,6 @@
 use clap::{ArgAction, Parser};
-use std::path::PathBuf;
 
-// todo: option to clean up empty source directories
-// todo: add support for configuration files
+use std::path::PathBuf;
 
 #[derive(Clone, Debug, Default, Parser)]
 #[command(version, author, about)]

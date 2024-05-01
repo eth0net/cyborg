@@ -1,17 +1,17 @@
 use clap::Parser;
 
-use cyborg::args::Args;
-use cyborg::logger;
-use cyborg::process::{Processor, ProcessorSettings};
+use cyborg::command::Args;
+use cyborg::log;
+use cyborg::organise::{Organiser, Settings};
 
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
 
-    logger::init(&args);
+    log::init(&args);
 
-    let settings = ProcessorSettings::from_args(&args);
+    let settings = Settings::from_args(&args);
 
-    let processor = Processor::new(settings);
+    let processor = Organiser::new(settings);
 
     processor.process(args.targets)
 }

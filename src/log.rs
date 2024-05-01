@@ -1,6 +1,6 @@
 use log::LevelFilter;
 
-use crate::args::Args;
+use crate::command::Args;
 
 /// Initialize the logger.
 pub fn init(args: &Args) {

@@ -3,19 +3,18 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Context;
 
-use crate::comic::Comic;
-use crate::process::ProcessorSettings;
+use crate::{comic::Meta, organise::Settings};
 
 #[derive(Default)]
 /// Processor for organising comic files
-pub struct Processor {
+pub struct Organiser {
     /// Settings for the processor
-    settings: ProcessorSettings,
+    settings: Settings,
 }
 
-impl Processor {
+impl Organiser {
     /// Create a new Processor instance with the provided settings
-    pub fn new(settings: ProcessorSettings) -> Processor {
+    pub fn new(settings: Settings) -> Organiser {
         Self { settings }
     }
 
@@ -59,7 +58,7 @@ impl Processor {
     }
 }
 
-impl Processor {
+impl Organiser {
     /// Process the provided directory
     fn process_dir(&self, path: &Path) -> anyhow::Result<()> {
         log::debug!("processing dir: {}", path.display());
@@ -130,7 +129,7 @@ impl Processor {
 
         log::trace!("old name: {}", name);
 
-        let comic: Comic = name.parse()?;
+        let comic: Meta = name.parse()?;
         let new_name = comic.to_string();
 
         log::trace!("new name: {}", &new_name);
@@ -233,7 +232,7 @@ pub(crate) mod tests {
         fs::write(&source_file_1, "").expect("should create first source file");
         fs::write(&source_file_2, "").expect("should create second source file");
 
-        let processor = Processor::new(ProcessorSettings {
+        let processor = Organiser::new(Settings {
             output: output_dir,
             ..Default::default()
         });
@@ -285,7 +284,7 @@ pub(crate) mod tests {
         fs::write(&source_file_1, "").expect("should create first source file");
         fs::write(&source_file_2, "").expect("should create second source file");
 
-        let processor = Processor::new(ProcessorSettings {
+        let processor = Organiser::new(Settings {
             output: output_dir,
             recursive: true,
             ..Default::default()
@@ -334,7 +333,7 @@ pub(crate) mod tests {
 
         fs::write(&source_file, "").expect("should create second source file");
 
-        let processor = Processor::new(ProcessorSettings {
+        let processor = Organiser::new(Settings {
             output: output_dir,
             ..Default::default()
         });
@@ -369,7 +368,7 @@ pub(crate) mod tests {
         std::fs::create_dir_all(&output_dir).expect("should create output dir");
         fs::write(&source_file, "").expect("should create first source file");
 
-        let processor = Processor::new(ProcessorSettings {
+        let processor = Organiser::new(Settings {
             output: output_dir,
             move_files: true,
             ..Default::default()
@@ -413,7 +412,7 @@ pub(crate) mod tests {
         fs::write(&output_file_1, "").expect("should create first output file");
         fs::write(&source_file_2, "").expect("should create second source file");
 
-        let processor = Processor::new(ProcessorSettings {
+        let processor = Organiser::new(Settings {
             output: output_dir,
             move_files: true,
             exit: true,
@@ -468,7 +467,7 @@ pub(crate) mod tests {
         fs::write(&source_file, contents).expect("should create first source file");
         fs::write(&output_file, "").expect("should create first source file");
 
-        let processor = Processor::new(ProcessorSettings {
+        let processor = Organiser::new(Settings {
             output: output_dir,
             move_files: true,
             force: true,
@@ -513,7 +512,7 @@ pub(crate) mod tests {
         fs::write(&source_file, contents).expect("should create first source file");
         fs::write(&output_file, "").expect("should create first source file");
 
-        let processor = Processor::new(ProcessorSettings {
+        let processor = Organiser::new(Settings {
             output: output_dir,
             move_files: true,
             force: false,
@@ -564,7 +563,7 @@ pub(crate) mod tests {
             series_dir.display()
         );
 
-        let processor = Processor::new(ProcessorSettings {
+        let processor = Organiser::new(Settings {
             output: output_dir,
             series: true,
             ..Default::default()
@@ -610,7 +609,7 @@ pub(crate) mod tests {
             output_dir.display()
         );
 
-        let processor = Processor::new(ProcessorSettings {
+        let processor = Organiser::new(Settings {
             output: output_dir.clone(),
             ..Default::default()
         });
@@ -663,7 +662,7 @@ pub(crate) mod tests {
             series_dir.display()
         );
 
-        let processor = Processor::new(ProcessorSettings {
+        let processor = Organiser::new(Settings {
             output: output_dir.clone(),
             series: true,
             move_files: true,

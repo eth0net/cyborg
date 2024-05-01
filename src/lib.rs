@@ -1,4 +1,4 @@
-pub mod args;
 pub mod comic;
-pub mod logger;
-pub mod process;
+pub mod command;
+pub mod log;
+pub mod organise;
