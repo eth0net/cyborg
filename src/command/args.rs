@@ -10,7 +10,7 @@ pub struct Args {
     /// A list of files or directories to process.
     ///
     /// For a directory, each direct child file will be processed.
-    pub targets: Vec<PathBuf>,
+    pub paths: Vec<PathBuf>,
 
     /// Output directory for organised files.
     ///

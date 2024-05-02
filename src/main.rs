@@ -13,5 +13,5 @@ fn main() -> anyhow::Result<()> {
 
     let processor = Organiser::new(settings);
 
-    processor.process(args.targets)
+    processor.process(args.paths)
 }

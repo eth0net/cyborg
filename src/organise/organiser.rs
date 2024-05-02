@@ -18,11 +18,11 @@ impl Organiser {
         Self { settings }
     }
 
-    /// Process the provided targets
-    pub fn process(&self, targets: Vec<PathBuf>) -> anyhow::Result<()> {
-        log::trace!("processing targets");
+    /// Process the provided paths
+    pub fn process(&self, paths: Vec<PathBuf>) -> anyhow::Result<()> {
+        log::trace!("processing paths");
 
-        for path in targets {
+        for path in paths {
             let result = path.metadata();
 
             if let Err(err) = result {
@@ -43,7 +43,7 @@ impl Organiser {
             };
 
             if let Err(err) = result {
-                let message = format!("failed to process target: {}", path.display());
+                let message = format!("failed to process path: {}", path.display());
                 log::error!("{message}: {err:#}");
                 match self.settings.exit {
                     true => return Err(err).context(message),
@@ -52,7 +52,7 @@ impl Organiser {
             }
         }
 
-        log::trace!("processed targets");
+        log::trace!("processed paths");
 
         Ok(())
     }
@@ -124,8 +124,11 @@ impl Organiser {
     fn process_file(&self, path: &Path) -> anyhow::Result<()> {
         log::debug!("processing file: {}", path.display());
 
-        let name = path.file_name().context("getting file name")?;
-        let name = name.to_str().context("converting name to str")?;
+        let name = path
+            .file_name()
+            .context("getting file name")?
+            .to_str()
+            .context("converting name to str")?;
 
         log::trace!("old name: {}", name);
 
@@ -168,15 +171,15 @@ impl Organiser {
                     log::warn!("would overwrite existing file: {}", new_path.display());
                 }
                 [true, false] => {
-                    log::error!("would skip existing file: {}", new_path.display());
-                    anyhow::bail!("skipping existing file: {}", new_path.display());
+                    log::warn!("would skip existing file: {}", new_path.display());
+                    return Ok(());
                 }
                 [false, true] => {
                     log::warn!("overwriting existing file: {}", new_path.display());
                 }
                 [false, false] => {
-                    log::error!("skipping existing file: {}", new_path.display());
-                    anyhow::bail!("skipping existing file: {}", new_path.display());
+                    log::warn!("skipping existing file: {}", new_path.display());
+                    return Ok(());
                 }
             }
         }
@@ -212,7 +215,7 @@ pub(crate) mod tests {
     use super::*;
 
     #[test]
-    fn test_process_multiple_targets() {
+    fn test_process_multiple_paths() {
         let dir = TempDir::new().expect("should create temp dir");
         let source_dir = dir.child("source");
         let output_dir = dir.child("output");
@@ -237,9 +240,9 @@ pub(crate) mod tests {
             ..Default::default()
         });
 
-        let targets = vec![source_file_1.clone(), source_sub_dir.clone()];
+        let paths = vec![source_file_1.clone(), source_sub_dir.clone()];
 
-        processor.process(targets).expect("should process");
+        processor.process(paths).expect("should process");
 
         assert!(
             source_file_1.exists(),
@@ -290,9 +293,9 @@ pub(crate) mod tests {
             ..Default::default()
         });
 
-        let targets = vec![source_dir];
+        let paths = vec![source_dir];
 
-        processor.process(targets).expect("should process");
+        processor.process(paths).expect("should process");
 
         assert!(
             source_file_1.exists(),
@@ -338,9 +341,9 @@ pub(crate) mod tests {
             ..Default::default()
         });
 
-        let targets = vec![source_dir];
+        let paths = vec![source_dir];
 
-        processor.process(targets).expect("should process");
+        processor.process(paths).expect("should process");
 
         assert!(
             source_file.exists(),
@@ -374,9 +377,9 @@ pub(crate) mod tests {
             ..Default::default()
         });
 
-        let targets = vec![source_dir];
+        let paths = vec![source_dir];
 
-        processor.process(targets).expect("should process");
+        processor.process(paths).expect("should process");
 
         assert!(
             !source_file.exists(),
@@ -398,30 +401,23 @@ pub(crate) mod tests {
 
         let name_1 = "Test 001.cbz";
         let source_file_1 = source_dir.join(name_1);
-        let output_file_1 = output_dir.join(name_1);
-
-        let name_2 = "Test 002.cbz";
-        let source_file_2 = source_dir.join(name_2);
-        let output_file_2 = output_dir.join(name_2);
 
         let contents = "contents";
 
         std::fs::create_dir_all(&source_dir).expect("should create source dir");
-        std::fs::create_dir_all(&output_dir).expect("should create output dir");
+        fs::write(&output_dir, contents).expect("should create output file");
         fs::write(&source_file_1, contents).expect("should create first source file");
-        fs::write(&output_file_1, "").expect("should create first output file");
-        fs::write(&source_file_2, "").expect("should create second source file");
 
         let processor = Organiser::new(Settings {
-            output: output_dir,
+            output: output_dir.clone(),
             move_files: true,
             exit: true,
             ..Default::default()
         });
 
-        let targets = vec![source_file_1.clone(), source_file_2.clone()];
+        let paths = vec![source_file_1.clone()];
 
-        processor.process(targets).expect_err("should exit early");
+        processor.process(paths).expect_err("should exit early");
 
         assert!(
             source_file_1.exists(),
@@ -429,25 +425,15 @@ pub(crate) mod tests {
             source_file_1.display()
         );
         assert!(
-            output_file_1.exists(),
-            "output file should exist: {}",
-            output_file_1.display()
-        );
-        assert_eq!(
-            fs::read_to_string(&output_file_1).expect("should read output file"),
-            "",
-            "output file should not have been overwritten"
+            output_dir.exists(),
+            "output file should still exist: {}",
+            output_dir.display()
         );
         assert!(
-            source_file_2.exists(),
-            "source file should still exist: {}",
-            source_file_2.display()
-        );
-        assert!(
-            !output_file_2.exists(),
-            "output file should not have been created: {}",
-            output_file_2.display()
-        );
+            output_dir.is_file(),
+            "output should be a file: {}",
+            output_dir.display()
+        )
     }
 
     #[test]
@@ -474,9 +460,9 @@ pub(crate) mod tests {
             ..Default::default()
         });
 
-        let targets = vec![source_dir];
+        let paths = vec![source_dir];
 
-        processor.process(targets).expect("should process");
+        processor.process(paths).expect("should process");
 
         assert!(
             !source_file.exists(),
@@ -519,9 +505,9 @@ pub(crate) mod tests {
             ..Default::default()
         });
 
-        let targets = vec![source_dir];
+        let paths = vec![source_dir];
 
-        processor.process(targets).expect("should process");
+        processor.process(paths).expect("should process");
 
         assert!(
             source_file.exists(),
@@ -569,9 +555,9 @@ pub(crate) mod tests {
             ..Default::default()
         });
 
-        let targets = vec![source_dir];
+        let paths = vec![source_dir];
 
-        processor.process(targets).expect("should process");
+        processor.process(paths).expect("should process");
 
         assert!(
             source_file.exists(),
@@ -614,9 +600,9 @@ pub(crate) mod tests {
             ..Default::default()
         });
 
-        let targets = vec![source_dir.clone()];
+        let paths = vec![source_dir.clone()];
 
-        processor.process(targets).expect("should process");
+        processor.process(paths).expect("should process");
 
         assert!(
             output_dir.exists(),
@@ -671,9 +657,9 @@ pub(crate) mod tests {
             ..Default::default()
         });
 
-        let targets = vec![source_dir.clone()];
+        let paths = vec![source_dir.clone()];
 
-        processor.process(targets).expect("should process");
+        processor.process(paths).expect("should process");
 
         assert!(
             !output_dir.exists(),
