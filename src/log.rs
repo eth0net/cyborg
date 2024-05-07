@@ -1,9 +1,12 @@
+use anyhow::Context;
+use indicatif::MultiProgress;
+use indicatif_log_bridge::LogWrapper;
 use log::LevelFilter;
 
 use crate::command::Args;
 
 /// Initialize the logger.
-pub fn init(args: &Args) {
+pub fn init(args: &Args, multibar: MultiProgress) -> anyhow::Result<()> {
     let mut level = match args.verbose {
         0 => LevelFilter::Error,
         1 => LevelFilter::Warn,
@@ -20,5 +23,9 @@ pub fn init(args: &Args) {
         level = LevelFilter::Off;
     }
 
-    env_logger::builder().filter_level(level).init();
+    let logger = env_logger::builder().filter_level(level).build();
+
+    LogWrapper::new(multibar, logger)
+        .try_init()
+        .context("initializing logger")
 }

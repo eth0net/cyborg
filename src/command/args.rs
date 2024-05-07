@@ -7,9 +7,9 @@ use std::path::PathBuf;
 #[group(id = "noisy", multiple = true)]
 /// Arguments for the application binary.
 pub struct Args {
-    /// A list of files or directories to process.
+    /// A list of files or directories to organise.
     ///
-    /// For a directory, each direct child file will be processed.
+    /// For a directory, each direct child file will be organised.
     pub paths: Vec<PathBuf>,
 
     /// Output directory for organised files.
@@ -38,9 +38,9 @@ pub struct Args {
     #[arg(short, long, group = "noisy")]
     pub dry_run: bool,
 
-    /// Stop processing after the first error.
+    /// Stop organising after the first error.
     ///
-    /// If not provided, errors will be logged and processing will continue.
+    /// If not provided, errors will be logged and organising will continue.
     #[arg(short, long, default_value = "false")]
     pub exit: bool,
 
@@ -50,9 +50,9 @@ pub struct Args {
     #[arg(short, long)]
     pub force: bool,
 
-    /// Recursively process files in subdirectories.
+    /// Recursively organise files in subdirectories.
     ///
-    /// If not provided, only the top-level files will be processed.
+    /// If not provided, only the top-level files will be organised.
     #[arg(short, long)]
     pub recursive: bool,
 

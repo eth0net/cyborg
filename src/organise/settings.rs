@@ -3,9 +3,9 @@ use std::path::PathBuf;
 use crate::command::Args;
 
 #[derive(Default)]
-/// Settings for the processor
+/// Settings for the organiser
 pub struct Settings {
-    /// The output directory for the processed files
+    /// The output directory for the organised files
     pub output: PathBuf,
     /// Whether to output files in series subdirectories
     pub series: bool,
@@ -13,21 +13,21 @@ pub struct Settings {
     pub move_files: bool,
     /// Whether to perform a dry run
     pub dry_run: bool,
-    /// Whether to exit after processing
+    /// Whether to exit after organising
     pub exit: bool,
     /// Whether to force overwrite of existing files
     pub force: bool,
-    /// Whether to process files recursively
+    /// Whether to organise files recursively
     pub recursive: bool,
 }
 
 impl Settings {
-    /// Create a new ProcessorSettings instance with default values
+    /// Create a new OrganiserSettings instance with default values
     pub fn new() -> Settings {
         Settings::default()
     }
 
-    /// Create a new ProcessorSettings instance from the provided Args
+    /// Create a new OrganiserSettings instance from the provided Args
     pub fn from_args(args: &Args) -> Settings {
         Settings {
             output: args.output.clone(),

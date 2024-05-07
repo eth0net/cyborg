@@ -1,4 +1,5 @@
 use clap::Parser;
+use indicatif::MultiProgress;
 
 use cyborg::command::Args;
 use cyborg::log;
@@ -7,11 +8,13 @@ use cyborg::organise::{Organiser, Settings};
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
 
-    log::init(&args);
+    let multibar = MultiProgress::new();
+
+    log::init(&args, multibar.clone())?;
 
     let settings = Settings::from_args(&args);
 
-    let processor = Organiser::new(settings);
+    let organiser = Organiser::new(settings, multibar);
 
-    processor.process(args.paths)
+    organiser.organise(args.paths)
 }

@@ -2,25 +2,41 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use anyhow::Context;
+use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 
 use crate::{comic::Meta, organise::Settings};
 
 #[derive(Default)]
-/// Processor for organising comic files
+/// Organiser for organising comic files
 pub struct Organiser {
-    /// Settings for the processor
+    /// Settings for the organiser
     settings: Settings,
+    /// The progress bar for the organiser
+    multibar: MultiProgress,
 }
 
 impl Organiser {
-    /// Create a new Processor instance with the provided settings
-    pub fn new(settings: Settings) -> Organiser {
-        Self { settings }
+    /// Create a new Organiser instance with the provided settings
+    pub fn new(settings: Settings, multibar: MultiProgress) -> Organiser {
+        Self { settings, multibar }
     }
 
-    /// Process the provided paths
-    pub fn process(&self, paths: Vec<PathBuf>) -> anyhow::Result<()> {
-        log::trace!("processing paths");
+    /// Organise the provided paths
+    pub fn organise(&self, paths: Vec<PathBuf>) -> anyhow::Result<()> {
+        log::trace!("organising files");
+
+        let style = ProgressStyle::default_bar()
+            .template("{prefix}{msg} [{wide_bar}] [{pos}/{len}] [{duration}]")
+            .context("setting progress bar style")?
+            .progress_chars("=> ");
+
+        let pb = self.multibar.add(ProgressBar::new(paths.len() as u64));
+        pb.set_style(style.clone());
+
+        match self.settings.dry_run {
+            true => pb.set_message("organising files (dry run)"),
+            false => pb.set_message("organising files"),
+        }
 
         for path in paths {
             let result = path.metadata();
@@ -29,7 +45,10 @@ impl Organiser {
                 let message = format!("failed to get metadata for: {}", path.display());
                 log::error!("{message}: {err:#}");
                 match self.settings.exit {
-                    true => return Err(err).context(message),
+                    true => {
+                        pb.abandon();
+                        return Err(err).context(message);
+                    }
                     false => continue,
                 }
             }
@@ -37,31 +56,44 @@ impl Organiser {
             log::trace!("got metadata for: {}", path.display());
             let meta = result.unwrap();
 
+            let cpb = self.multibar.insert_after(&pb, ProgressBar::new(0));
+            cpb.set_style(style.clone());
+            cpb.set_prefix(format!("> {}", cpb.prefix()));
+
             let result = match meta.is_dir() {
-                true => self.process_dir(&path),
-                false => self.process_file(&path),
+                true => self.organise_dir(&path, cpb.clone()),
+                false => self.organise_file(&path, cpb.clone()),
             };
 
             if let Err(err) = result {
-                let message = format!("failed to process path: {}", path.display());
+                let message = format!("failed to organise path: {}", path.display());
                 log::error!("{message}: {err:#}");
                 match self.settings.exit {
-                    true => return Err(err).context(message),
+                    true => {
+                        pb.abandon();
+                        return Err(err).context(message);
+                    }
                     false => continue,
                 }
             }
+
+            pb.inc(1);
         }
 
-        log::trace!("processed paths");
+        pb.finish();
+
+        log::trace!("organised paths");
 
         Ok(())
     }
 }
 
 impl Organiser {
-    /// Process the provided directory
-    fn process_dir(&self, path: &Path) -> anyhow::Result<()> {
-        log::debug!("processing dir: {}", path.display());
+    /// Organise the provided directory
+    fn organise_dir(&self, path: &Path, pb: ProgressBar) -> anyhow::Result<()> {
+        log::debug!("organising dir: {}", path.display());
+
+        pb.set_message(path.display().to_string());
 
         let directory = path
             .read_dir()
@@ -70,12 +102,17 @@ impl Organiser {
         log::trace!("read dir: {}", path.display());
 
         for entry in directory {
-            log::trace!("processing directory entry");
+            pb.inc_length(1);
+
+            log::trace!("organising directory entry");
             if let Err(err) = entry {
                 let message = format!("failed to read directory entry: {}", path.display());
                 log::error!("{message}: {err:#}");
                 match self.settings.exit {
-                    true => return Err(err).context(message),
+                    true => {
+                        pb.abandon();
+                        return Err(err).context(message);
+                    }
                     false => continue,
                 }
             }
@@ -88,7 +125,10 @@ impl Organiser {
                 let message = format!("failed to get metadata for: {}", path.display());
                 log::error!("{message}: {err:#}");
                 match self.settings.exit {
-                    true => return Err(err).context(message),
+                    true => {
+                        pb.abandon();
+                        return Err(err).context(message);
+                    }
                     false => continue,
                 }
             }
@@ -96,33 +136,44 @@ impl Organiser {
             log::trace!("got metadata for: {}", path.display());
             let meta = result.unwrap();
 
+            let cpb = self.multibar.insert_after(&pb, ProgressBar::new(1));
+            cpb.set_style(pb.style());
+            cpb.set_prefix(format!("  {}", pb.prefix()));
+
             let result = match [meta.is_dir(), self.settings.recursive] {
-                [true, true] => self.process_dir(path),
+                [true, true] => self.organise_dir(path, cpb),
                 [true, false] => {
                     log::trace!("skipping subdirectory: {}", path.display());
                     continue;
                 }
-                [false, _] => self.process_file(path),
+                [false, _] => self.organise_file(path, cpb),
             };
 
             if let Err(err) = result {
-                let message = format!("failed to process directory entry: {}", path.display());
+                let message = format!("failed to organise directory entry: {}", path.display());
                 log::error!("{message}: {err:#}");
                 match self.settings.exit {
-                    true => return Err(err).context(message),
+                    true => {
+                        pb.abandon();
+                        return Err(err).context(message);
+                    }
                     false => continue,
                 }
             }
+
+            pb.inc(1)
         }
 
-        log::debug!("processed dir: {}", path.display());
+        pb.finish();
+
+        log::debug!("organised dir: {}", path.display());
 
         Ok(())
     }
 
-    /// Process the provided file
-    fn process_file(&self, path: &Path) -> anyhow::Result<()> {
-        log::debug!("processing file: {}", path.display());
+    /// Organise the provided file
+    fn organise_file(&self, path: &Path, pb: ProgressBar) -> anyhow::Result<()> {
+        log::debug!("organising file: {}", path.display());
 
         let name = path
             .file_name()
@@ -131,6 +182,8 @@ impl Organiser {
             .context("converting name to str")?;
 
         log::trace!("old name: {}", name);
+
+        pb.set_message(name.to_string());
 
         let comic: Meta = name.parse()?;
         let new_name = comic.to_string();
@@ -160,7 +213,7 @@ impl Organiser {
             _ => log::trace!("output dir exists: {}", output_dir.display()),
         }
 
-        let new_path = output_dir.join(new_name);
+        let new_path = output_dir.join(new_name.clone());
 
         log::trace!("new path: {}", new_path.display());
 
@@ -172,6 +225,7 @@ impl Organiser {
                 }
                 [true, false] => {
                     log::warn!("would skip existing file: {}", new_path.display());
+                    pb.finish_with_message(format!("{}: would skip", pb.message()));
                     return Ok(());
                 }
                 [false, true] => {
@@ -179,6 +233,7 @@ impl Organiser {
                 }
                 [false, false] => {
                     log::warn!("skipping existing file: {}", new_path.display());
+                    pb.finish_with_message(format!("{}: skipped", pb.message()));
                     return Ok(());
                 }
             }
@@ -193,15 +248,29 @@ impl Organiser {
             }
             [false, true] => {
                 log::info!("moving: {} -> {}", path.display(), new_path.display());
-                fs::rename(path, new_path).context("moving file")?;
+                if let Err(err) = fs::rename(path, new_path).context("moving file") {
+                    log::error!("failed to move file: {}", err);
+                    pb.abandon_with_message(format!("{}: {}", pb.message(), err));
+                    return Err(err);
+                }
             }
             [false, false] => {
                 log::info!("copying: {} -> {}", path.display(), new_path.display());
-                fs::copy(path, new_path).context("copying file")?;
+                if let Err(err) = fs::copy(path, new_path).context("copying file") {
+                    log::error!("failed to copy file: {}", err);
+                    pb.abandon_with_message(format!("{}: {}", pb.message(), err));
+                    return Err(err);
+                }
             }
         }
 
-        log::debug!("processed file: {}", path.display());
+        if log::max_level() >= log::LevelFilter::Info {
+            pb.finish_with_message(format!("{} -> {}", name, new_name));
+        } else {
+            pb.finish_and_clear();
+        }
+
+        log::debug!("organised file: {}", path.display());
 
         Ok(())
     }
@@ -215,7 +284,7 @@ pub(crate) mod tests {
     use super::*;
 
     #[test]
-    fn test_process_multiple_paths() {
+    fn test_organise_multiple_paths() {
         let dir = TempDir::new().expect("should create temp dir");
         let source_dir = dir.child("source");
         let output_dir = dir.child("output");
@@ -235,14 +304,16 @@ pub(crate) mod tests {
         fs::write(&source_file_1, "").expect("should create first source file");
         fs::write(&source_file_2, "").expect("should create second source file");
 
-        let processor = Organiser::new(Settings {
+        let settings = Settings {
             output: output_dir,
             ..Default::default()
-        });
+        };
+
+        let organiser = Organiser::new(settings, Default::default());
 
         let paths = vec![source_file_1.clone(), source_sub_dir.clone()];
 
-        processor.process(paths).expect("should process");
+        organiser.organise(paths).expect("should organise");
 
         assert!(
             source_file_1.exists(),
@@ -267,7 +338,7 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn test_process_recursive() {
+    fn test_organise_recursive() {
         let dir = TempDir::new().expect("should create temp dir");
         let source_dir = dir.child("source");
         let output_dir = dir.child("output");
@@ -287,15 +358,17 @@ pub(crate) mod tests {
         fs::write(&source_file_1, "").expect("should create first source file");
         fs::write(&source_file_2, "").expect("should create second source file");
 
-        let processor = Organiser::new(Settings {
+        let settings = Settings {
             output: output_dir,
             recursive: true,
             ..Default::default()
-        });
+        };
+
+        let organiser = Organiser::new(settings, Default::default());
 
         let paths = vec![source_dir];
 
-        processor.process(paths).expect("should process");
+        organiser.organise(paths).expect("should organise");
 
         assert!(
             source_file_1.exists(),
@@ -320,7 +393,7 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn test_process_non_recursive() {
+    fn test_organise_non_recursive() {
         let dir = TempDir::new().expect("should create temp dir");
         let source_dir = dir.child("source");
         let output_dir = dir.child("output");
@@ -336,14 +409,16 @@ pub(crate) mod tests {
 
         fs::write(&source_file, "").expect("should create second source file");
 
-        let processor = Organiser::new(Settings {
+        let settings = Settings {
             output: output_dir,
             ..Default::default()
-        });
+        };
+
+        let organiser = Organiser::new(settings, Default::default());
 
         let paths = vec![source_dir];
 
-        processor.process(paths).expect("should process");
+        organiser.organise(paths).expect("should organise");
 
         assert!(
             source_file.exists(),
@@ -358,7 +433,7 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn test_process_move() {
+    fn test_organise_move() {
         let dir = TempDir::new().expect("should create temp dir");
         let source_dir = dir.child("source");
         let output_dir = dir.child("output");
@@ -371,15 +446,17 @@ pub(crate) mod tests {
         std::fs::create_dir_all(&output_dir).expect("should create output dir");
         fs::write(&source_file, "").expect("should create first source file");
 
-        let processor = Organiser::new(Settings {
+        let settings = Settings {
             output: output_dir,
             move_files: true,
             ..Default::default()
-        });
+        };
+
+        let organiser = Organiser::new(settings, Default::default());
 
         let paths = vec![source_dir];
 
-        processor.process(paths).expect("should process");
+        organiser.organise(paths).expect("should organise");
 
         assert!(
             !source_file.exists(),
@@ -394,7 +471,7 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn test_process_exit() {
+    fn test_organise_exit() {
         let dir = TempDir::new().expect("should create temp dir");
         let source_dir = dir.child("source");
         let output_dir = dir.child("output");
@@ -408,16 +485,18 @@ pub(crate) mod tests {
         fs::write(&output_dir, contents).expect("should create output file");
         fs::write(&source_file_1, contents).expect("should create first source file");
 
-        let processor = Organiser::new(Settings {
+        let settings = Settings {
             output: output_dir.clone(),
             move_files: true,
             exit: true,
             ..Default::default()
-        });
+        };
+
+        let organiser = Organiser::new(settings, Default::default());
 
         let paths = vec![source_file_1.clone()];
 
-        processor.process(paths).expect_err("should exit early");
+        organiser.organise(paths).expect_err("should exit early");
 
         assert!(
             source_file_1.exists(),
@@ -437,7 +516,7 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn test_process_force() {
+    fn test_organise_force() {
         let dir = TempDir::new().expect("should create temp dir");
         let source_dir = dir.child("source");
         let output_dir = dir.child("output");
@@ -453,16 +532,18 @@ pub(crate) mod tests {
         fs::write(&source_file, contents).expect("should create first source file");
         fs::write(&output_file, "").expect("should create first source file");
 
-        let processor = Organiser::new(Settings {
+        let settings = Settings {
             output: output_dir,
             move_files: true,
             force: true,
             ..Default::default()
-        });
+        };
+
+        let organiser = Organiser::new(settings, Default::default());
 
         let paths = vec![source_dir];
 
-        processor.process(paths).expect("should process");
+        organiser.organise(paths).expect("should organise");
 
         assert!(
             !source_file.exists(),
@@ -482,7 +563,7 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn test_process_no_force() {
+    fn test_organise_no_force() {
         let dir = TempDir::new().expect("should create temp dir");
         let source_dir = dir.child("source");
         let output_dir = dir.child("output");
@@ -498,16 +579,18 @@ pub(crate) mod tests {
         fs::write(&source_file, contents).expect("should create first source file");
         fs::write(&output_file, "").expect("should create first source file");
 
-        let processor = Organiser::new(Settings {
+        let settings = Settings {
             output: output_dir,
             move_files: true,
             force: false,
             ..Default::default()
-        });
+        };
+
+        let organiser = Organiser::new(settings, Default::default());
 
         let paths = vec![source_dir];
 
-        processor.process(paths).expect("should process");
+        organiser.organise(paths).expect("should organise");
 
         assert!(
             source_file.exists(),
@@ -527,7 +610,7 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn test_process_series() {
+    fn test_organise_series() {
         let dir = TempDir::new().expect("should create temp dir");
         let source_dir = dir.child("source");
         let output_dir = dir.child("output");
@@ -545,19 +628,21 @@ pub(crate) mod tests {
 
         assert!(
             !series_dir.exists(),
-            "series dir should not exist before process: {}",
+            "series dir should not exist before organise: {}",
             series_dir.display()
         );
 
-        let processor = Organiser::new(Settings {
+        let settings = Settings {
             output: output_dir,
             series: true,
             ..Default::default()
-        });
+        };
+
+        let organiser = Organiser::new(settings, Default::default());
 
         let paths = vec![source_dir];
 
-        processor.process(paths).expect("should process");
+        organiser.organise(paths).expect("should organise");
 
         assert!(
             source_file.exists(),
@@ -577,7 +662,7 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn test_process_creates_output_dir() {
+    fn test_organise_creates_output_dir() {
         let dir = TempDir::new().expect("should create temp dir");
         let source_dir = dir.child("source");
         let output_dir = dir.child("output");
@@ -591,18 +676,20 @@ pub(crate) mod tests {
 
         assert!(
             !output_dir.exists(),
-            "output dir should not exist before process: {}",
+            "output dir should not exist before organise: {}",
             output_dir.display()
         );
 
-        let processor = Organiser::new(Settings {
+        let settings = Settings {
             output: output_dir.clone(),
             ..Default::default()
-        });
+        };
+
+        let organiser = Organiser::new(settings, Default::default());
 
         let paths = vec![source_dir.clone()];
 
-        processor.process(paths).expect("should process");
+        organiser.organise(paths).expect("should organise");
 
         assert!(
             output_dir.exists(),
@@ -622,7 +709,7 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn test_process_dry_run() {
+    fn test_organise_dry_run() {
         let dir = TempDir::new().expect("should create temp dir");
         let source_dir = dir.child("source");
         let output_dir = dir.child("output");
@@ -639,27 +726,29 @@ pub(crate) mod tests {
 
         assert!(
             !output_dir.exists(),
-            "output dir should not exist before process: {}",
+            "output dir should not exist before organise: {}",
             output_dir.display()
         );
         assert!(
             !series_dir.exists(),
-            "series dir should not exist before process: {}",
+            "series dir should not exist before organise: {}",
             series_dir.display()
         );
 
-        let processor = Organiser::new(Settings {
+        let settings = Settings {
             output: output_dir.clone(),
             series: true,
             move_files: true,
             dry_run: true,
             force: true,
             ..Default::default()
-        });
+        };
+
+        let organiser = Organiser::new(settings, Default::default());
 
         let paths = vec![source_dir.clone()];
 
-        processor.process(paths).expect("should process");
+        organiser.organise(paths).expect("should organise");
 
         assert!(
             !output_dir.exists(),
